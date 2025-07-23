@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { transactions, loading, error, transactionStore } from '$lib/stores/transactions';
+	import { openingBalances, openingBalanceStore } from '$lib/stores/opening-balances';
 	import type { Transaction } from '$lib/firestore';
 
 	// Reactive variable to track if data is being submitted
@@ -14,31 +15,35 @@
 		type: 'income' as 'income' | 'expense'
 	};
 
+	// Date selector for monthly view
+	let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+
+	// Opening balance management
+	let showOpeningBalanceForm = false;
+	let newOpeningBalance = 0;
+	let openingBalanceNote = '';
+
 	// Categories organized by type and purpose
 	const incomeCategories = [
 		'Worldwide Work Donations',
 		'Local Congregation Donations',
-		'Literature Contributions',
-		'Assembly Hall Contributions',
 		'Other Income'
 	];
 
 	const expenseCategories = [
 		'Worldwide Work Expenses',
 		'Local Congregation Expenses', 
-		'Kingdom Hall Maintenance',
-		'Utilities',
-		'Supplies',
-		'Literature Costs',
-		'Assembly Expenses',
 		'Other Expenses'
 	];
 
 	// Test Firebase connection on component mount
 	onMount(async () => {
 		console.log('Main dashboard loaded for authenticated user');
-		// Load transactions from Firestore
-		await transactionStore.loadTransactions();
+		// Load transactions and opening balances from Firestore
+		await Promise.all([
+			transactionStore.loadTransactions(),
+			openingBalanceStore.loadOpeningBalances()
+		]);
 	});
 
 	// Get categories based on selected type
@@ -53,37 +58,38 @@
 		}
 	}
 
-	// Computed values for dashboard summary
-	$: totalIncome = $transactions
+	// Monthly calculations based on selected month
+	$: monthlyTransactions = $transactions.filter(t => t.date.startsWith(selectedMonth));
+
+	$: monthlyIncome = monthlyTransactions
 		.filter(t => t.type === 'income')
 		.reduce((sum, t) => sum + t.amount, 0);
 
-	$: totalExpenses = $transactions
+	$: monthlyExpenses = monthlyTransactions
 		.filter(t => t.type === 'expense')
 		.reduce((sum, t) => sum + t.amount, 0);
 
-	$: balance = totalIncome - totalExpenses;
+	// Get opening balance for selected month
+	$: currentOpeningBalance = $openingBalances.find(ob => ob.month === selectedMonth);
+	$: openingBalanceAmount = currentOpeningBalance?.balance || 0;
 
-	$: recentTransactions = $transactions
+	// Calculate end of month balance: Opening Balance + Income - Expenses
+	$: monthlyBalance = openingBalanceAmount + monthlyIncome - monthlyExpenses;
+
+	// Get all available months from transactions for the dropdown
+	$: availableMonths = [...new Set($transactions.map(t => t.date.slice(0, 7)))]
+		.sort()
+		.reverse(); // Most recent first
+
+	// Recent transactions for the selected month
+	$: recentMonthlyTransactions = monthlyTransactions
 		.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-		.slice(0, 5);
+		.slice(0, 10);
 
-	// Calculate Worldwide Work and Local Congregation breakdowns
-	$: worldwideWorkIncome = $transactions
-		.filter(t => t.type === 'income' && t.category.includes('Worldwide Work'))
-		.reduce((sum, t) => sum + t.amount, 0);
-		
-	$: worldwideWorkExpenses = $transactions
-		.filter(t => t.type === 'expense' && t.category.includes('Worldwide Work'))
-		.reduce((sum, t) => sum + t.amount, 0);
-
-	$: localIncome = $transactions
-		.filter(t => t.type === 'income' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
-		.reduce((sum, t) => sum + t.amount, 0);
-		
-	$: localExpenses = $transactions
-		.filter(t => t.type === 'expense' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
-		.reduce((sum, t) => sum + t.amount, 0);
+	// Check if we need to suggest setting up opening balance for next month
+	$: nextMonth = getNextMonth(selectedMonth);
+	$: nextMonthOpeningBalance = $openingBalances.find(ob => ob.month === nextMonth);
+	$: shouldSetupNextMonth = monthlyTransactions.length > 0 && !nextMonthOpeningBalance;
 
 	// Functions
 	async function addTransaction() {
@@ -139,9 +145,9 @@
 	}
 
 	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-US', {
+		return new Intl.NumberFormat('en-PH', {
 			style: 'currency',
-			currency: 'USD'
+			currency: 'PHP'
 		}).format(amount);
 	}
 
@@ -153,69 +159,81 @@
 		});
 	}
 
-	function generateSummaryReport() {
-		// Calculate Worldwide Work totals
-		const worldwideWorkIncome = $transactions
-			.filter(t => t.type === 'income' && t.category.includes('Worldwide Work'))
-			.reduce((sum, t) => sum + t.amount, 0);
+	function formatMonthYear(monthString: string): string {
+		const [year, month] = monthString.split('-');
+		const date = new Date(parseInt(year), parseInt(month) - 1);
+		return date.toLocaleDateString('en-US', {
+			month: 'long',
+			year: 'numeric'
+		});
+	}
+
+	function getNextMonth(monthString: string): string {
+		const [year, month] = monthString.split('-');
+		const date = new Date(parseInt(year), parseInt(month) - 1);
+		date.setMonth(date.getMonth() + 1);
+		return date.toISOString().slice(0, 7);
+	}
+
+	async function setOpeningBalance() {
+		if (newOpeningBalance < 0) {
+			alert('Opening balance cannot be negative');
+			return;
+		}
+
+		try {
+			await openingBalanceStore.setMonthOpeningBalance(
+				selectedMonth, 
+				newOpeningBalance, 
+				openingBalanceNote || undefined
+			);
 			
-		const worldwideWorkExpenses = $transactions
-			.filter(t => t.type === 'expense' && t.category.includes('Worldwide Work'))
-			.reduce((sum, t) => sum + t.amount, 0);
-
-		// Calculate Local Congregation totals
-		const localIncome = $transactions
-			.filter(t => t.type === 'income' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
-			.reduce((sum, t) => sum + t.amount, 0);
+			// Reset form
+			newOpeningBalance = 0;
+			openingBalanceNote = '';
+			showOpeningBalanceForm = false;
 			
-		const localExpenses = $transactions
-			.filter(t => t.type === 'expense' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
-			.reduce((sum, t) => sum + t.amount, 0);
+			console.log('Opening balance set successfully');
+		} catch (err) {
+			console.error('Failed to set opening balance:', err);
+			alert('Failed to set opening balance. Please try again.');
+		}
+	}
 
-		// General breakdown by category
-		const incomeByCategory = $transactions
-			.filter(t => t.type === 'income')
-			.reduce((acc, t) => {
-				acc[t.category] = (acc[t.category] || 0) + t.amount;
-				return acc;
-			}, {} as Record<string, number>);
+	async function setupNextMonthBalance() {
+		const nextMonthStr = getNextMonth(selectedMonth);
+		try {
+			await openingBalanceStore.setMonthOpeningBalance(
+				nextMonthStr, 
+				monthlyBalance, 
+				`Auto-forwarded from ${formatMonthYear(selectedMonth)}`
+			);
+			console.log('Next month balance set up successfully');
+		} catch (err) {
+			console.error('Failed to setup next month balance:', err);
+			alert('Failed to setup next month balance. Please try again.');
+		}
+	}
 
-		const expensesByCategory = $transactions
-			.filter(t => t.type === 'expense')
-			.reduce((acc, t) => {
-				acc[t.category] = (acc[t.category] || 0) + t.amount;
-				return acc;
-			}, {} as Record<string, number>);
-
+	function generateMonthlyReport() {
+		const monthName = formatMonthYear(selectedMonth);
+		
 		alert(`
-CONGREGATION ACCOUNTS SUMMARY
+MONTHLY REPORT - ${monthName}
 
-=== WORLDWIDE WORK ===
-Donations Received: ${formatCurrency(worldwideWorkIncome)}
-Sent to Worldwide Work: ${formatCurrency(worldwideWorkExpenses)}
-Worldwide Work Balance: ${formatCurrency(worldwideWorkIncome - worldwideWorkExpenses)}
+=== MONTHLY BALANCE CALCULATION ===
+Opening Balance: ${formatCurrency(openingBalanceAmount)}
+Total Income: ${formatCurrency(monthlyIncome)}
+Total Expenses: ${formatCurrency(monthlyExpenses)}
+End of Month Balance: ${formatCurrency(monthlyBalance)}
 
-=== LOCAL CONGREGATION ===
-Local Income: ${formatCurrency(localIncome)}
-Local Expenses: ${formatCurrency(localExpenses)}
-Local Balance: ${formatCurrency(localIncome - localExpenses)}
+=== TRANSACTION COUNT ===
+Total Transactions: ${monthlyTransactions.length}
+Income Transactions: ${monthlyTransactions.filter(t => t.type === 'income').length}
+Expense Transactions: ${monthlyTransactions.filter(t => t.type === 'expense').length}
 
-=== DETAILED INCOME BY CATEGORY ===
-${Object.entries(incomeByCategory)
-	.map(([category, amount]) => `${category}: ${formatCurrency(amount)}`)
-	.join('\n')}
-
-Total Income: ${formatCurrency(totalIncome)}
-
-=== DETAILED EXPENSES BY CATEGORY ===
-${Object.entries(expensesByCategory)
-	.map(([category, amount]) => `${category}: ${formatCurrency(amount)}`)
-	.join('\n')}
-
-Total Expenses: ${formatCurrency(totalExpenses)}
-
-=== OVERALL SUMMARY ===
-Current Balance: ${formatCurrency(balance)}
+=== CALCULATION BREAKDOWN ===
+${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${formatCurrency(monthlyExpenses)} = ${formatCurrency(monthlyBalance)}
 		`);
 	}
 </script>
@@ -235,72 +253,121 @@ Current Balance: ${formatCurrency(balance)}
 			<p>🔄 Loading transactions...</p>
 		</div>
 	{/if}
-	<!-- Dashboard Summary Cards -->
+
+	<!-- Month Selector -->
+	<section class="month-selector">
+		<div class="selector-container">
+			<label for="month-select">Select Month:</label>
+			<select id="month-select" bind:value={selectedMonth}>
+				{#each availableMonths as month}
+					<option value={month}>{formatMonthYear(month)}</option>
+				{/each}
+				{#if availableMonths.length === 0}
+					<option value={selectedMonth}>{formatMonthYear(selectedMonth)}</option>
+				{/if}
+			</select>
+		</div>
+		<div class="selected-month-display">
+			<h2>📅 {formatMonthYear(selectedMonth)} Report</h2>
+		</div>
+	</section>
+
+	<!-- Opening Balance Section -->
+	<section class="opening-balance-section">
+		<div class="balance-info">
+			<div class="current-opening-balance">
+				<h3>💰 Opening Balance</h3>
+				<p class="balance-amount">{formatCurrency(openingBalanceAmount)}</p>
+				{#if currentOpeningBalance?.note}
+					<p class="balance-note">{currentOpeningBalance.note}</p>
+				{/if}
+			</div>
+			
+			{#if !currentOpeningBalance}
+				<button class="set-balance-btn" on:click={() => showOpeningBalanceForm = true}>
+					Set Opening Balance
+				</button>
+			{:else}
+				<button class="update-balance-btn" on:click={() => showOpeningBalanceForm = true}>
+					Update Opening Balance
+				</button>
+			{/if}
+		</div>
+
+		{#if shouldSetupNextMonth}
+			<div class="next-month-setup">
+				<p>💡 Ready to setup {formatMonthYear(nextMonth)}?</p>
+				<button class="setup-next-btn" on:click={setupNextMonthBalance}>
+					Forward Balance to {formatMonthYear(nextMonth)} ({formatCurrency(monthlyBalance)})
+				</button>
+			</div>
+		{/if}
+
+		{#if showOpeningBalanceForm}
+			<div class="opening-balance-form">
+				<h4>{currentOpeningBalance ? 'Update' : 'Set'} Opening Balance for {formatMonthYear(selectedMonth)}</h4>
+				<form on:submit|preventDefault={setOpeningBalance}>
+					<div class="form-group">
+						<label for="opening-balance">Opening Balance Amount</label>
+						<input
+							id="opening-balance"
+							type="number"
+							step="0.01"
+							min="0"
+							bind:value={newOpeningBalance}
+							placeholder="0.00"
+							required
+						/>
+					</div>
+					<div class="form-group">
+						<label for="balance-note">Note (Optional)</label>
+						<input
+							id="balance-note"
+							type="text"
+							bind:value={openingBalanceNote}
+							placeholder="e.g., Initial balance, Forwarded from previous month"
+						/>
+					</div>
+					<div class="form-actions">
+						<button type="submit" class="save-btn">Save Opening Balance</button>
+						<button type="button" class="cancel-btn" on:click={() => showOpeningBalanceForm = false}>Cancel</button>
+					</div>
+				</form>
+			</div>
+		{/if}
+	</section>
+
+	<!-- Monthly Summary Cards -->
 	<section class="summary-cards">
+		<div class="card opening-card">
+			<div class="card-icon">🏦</div>
+			<div class="card-content">
+				<h3>Opening Balance</h3>
+				<p class="amount">{formatCurrency(openingBalanceAmount)}</p>
+			</div>
+		</div>
+
 		<div class="card income-card">
 			<div class="card-icon">💰</div>
 			<div class="card-content">
-				<h3>Total Income</h3>
-				<p class="amount">{formatCurrency(totalIncome)}</p>
+				<h3>Monthly Income</h3>
+				<p class="amount">{formatCurrency(monthlyIncome)}</p>
 			</div>
 		</div>
 
 		<div class="card expense-card">
 			<div class="card-icon">💸</div>
 			<div class="card-content">
-				<h3>Total Expenses</h3>
-				<p class="amount">{formatCurrency(totalExpenses)}</p>
+				<h3>Monthly Expenses</h3>
+				<p class="amount">{formatCurrency(monthlyExpenses)}</p>
 			</div>
 		</div>
 
-		<div class="card balance-card" class:positive={balance >= 0} class:negative={balance < 0}>
-			<div class="card-icon">{balance >= 0 ? '📈' : '📉'}</div>
+		<div class="card balance-card" class:positive={monthlyBalance >= 0} class:negative={monthlyBalance < 0}>
+			<div class="card-icon">{monthlyBalance >= 0 ? '📈' : '📉'}</div>
 			<div class="card-content">
-				<h3>Current Balance</h3>
-				<p class="amount">{formatCurrency(balance)}</p>
-			</div>
-		</div>
-	</section>
-
-	<!-- Worldwide Work vs Local Breakdown -->
-	<section class="breakdown-cards">
-		<div class="breakdown-section">
-			<h3>🌍 Worldwide Work</h3>
-			<div class="breakdown-stats">
-				<div class="stat-item">
-					<span class="stat-label">Donations Received:</span>
-					<span class="stat-value income">{formatCurrency(worldwideWorkIncome)}</span>
-				</div>
-				<div class="stat-item">
-					<span class="stat-label">Sent to Worldwide Work:</span>
-					<span class="stat-value expense">{formatCurrency(worldwideWorkExpenses)}</span>
-				</div>
-				<div class="stat-item total">
-					<span class="stat-label">Worldwide Work Balance:</span>
-					<span class="stat-value" class:income={worldwideWorkIncome - worldwideWorkExpenses >= 0} class:expense={worldwideWorkIncome - worldwideWorkExpenses < 0}>
-						{formatCurrency(worldwideWorkIncome - worldwideWorkExpenses)}
-					</span>
-				</div>
-			</div>
-		</div>
-
-		<div class="breakdown-section">
-			<h3>🏛️ Local Congregation</h3>
-			<div class="breakdown-stats">
-				<div class="stat-item">
-					<span class="stat-label">Local Income:</span>
-					<span class="stat-value income">{formatCurrency(localIncome)}</span>
-				</div>
-				<div class="stat-item">
-					<span class="stat-label">Local Expenses:</span>
-					<span class="stat-value expense">{formatCurrency(localExpenses)}</span>
-				</div>
-				<div class="stat-item total">
-					<span class="stat-label">Local Balance:</span>
-					<span class="stat-value" class:income={localIncome - localExpenses >= 0} class:expense={localIncome - localExpenses < 0}>
-						{formatCurrency(localIncome - localExpenses)}
-					</span>
-				</div>
+				<h3>End of Month Balance</h3>
+				<p class="amount">{formatCurrency(monthlyBalance)}</p>
 			</div>
 		</div>
 	</section>
@@ -361,17 +428,17 @@ Current Balance: ${formatCurrency(balance)}
 		</form>
 	</section>
 
-	<!-- Recent Transactions -->
+	<!-- Monthly Transactions -->
 	<section class="recent-transactions">
 		<div class="section-header">
-			<h2>Recent Transactions</h2>
-			<button class="generate-summary-btn" on:click={generateSummaryReport}>
-				Generate Summary Report
+			<h2>Transactions for {formatMonthYear(selectedMonth)}</h2>
+			<button class="generate-summary-btn" on:click={generateMonthlyReport}>
+				Generate Monthly Report
 			</button>
 		</div>
 
 		<div class="transactions-list">
-			{#each recentTransactions as transaction (transaction.id)}
+			{#each recentMonthlyTransactions as transaction (transaction.id)}
 				<div class="transaction-item" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
 					<div class="transaction-info">
 						<div class="transaction-description">{transaction.description}</div>
@@ -396,16 +463,21 @@ Current Balance: ${formatCurrency(balance)}
 				</div>
 			{/each}
 
-			{#if $transactions.length === 0 && !$loading}
+			{#if monthlyTransactions.length === 0 && !$loading}
 				<div class="no-transactions">
-					<p>No transactions yet. Add your first transaction above!</p>
+					<p>No transactions found for {formatMonthYear(selectedMonth)}.</p>
+					<p>Add your first transaction above!</p>
 				</div>
 			{/if}
 		</div>
 
-		{#if $transactions.length > 5}
+		{#if monthlyTransactions.length > 10}
 			<div class="view-all">
-				<a href="/transactions" class="view-all-btn">View All Transactions</a>
+				<a href="/transactions" class="view-all-btn">View All Transactions ({monthlyTransactions.length} total)</a>
+			</div>
+		{:else if monthlyTransactions.length > 0}
+			<div class="transaction-count">
+				<p>Showing all {monthlyTransactions.length} transaction{monthlyTransactions.length === 1 ? '' : 's'} for this month</p>
 			</div>
 		{/if}
 	</section>
@@ -461,10 +533,201 @@ Current Balance: ${formatCurrency(balance)}
 		font-weight: 500;
 	}
 
+	/* Month Selector */
+	.month-selector {
+		background: white;
+		border-radius: 12px;
+		padding: 1.5rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		margin-bottom: 2rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+	}
+
+	.selector-container {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.selector-container label {
+		font-weight: 600;
+		color: #1e293b;
+		font-size: 1rem;
+	}
+
+	.selector-container select {
+		padding: 0.75rem 1rem;
+		border: 2px solid #e2e8f0;
+		border-radius: 8px;
+		font-size: 1rem;
+		font-weight: 500;
+		background: white;
+		color: #1e293b;
+		cursor: pointer;
+		transition: border-color 0.2s, box-shadow 0.2s;
+		min-width: 200px;
+	}
+
+	.selector-container select:focus {
+		outline: none;
+		border-color: #2563eb;
+		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+	}
+
+	.selected-month-display h2 {
+		margin: 0;
+		color: #1e293b;
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	/* Opening Balance Section */
+	.opening-balance-section {
+		background: white;
+		border-radius: 12px;
+		padding: 1.5rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		margin-bottom: 2rem;
+	}
+
+	.balance-info {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1rem;
+		flex-wrap: wrap;
+		gap: 1rem;
+	}
+
+	.current-opening-balance h3 {
+		margin: 0 0 0.5rem 0;
+		color: #1e293b;
+		font-size: 1.125rem;
+		font-weight: 600;
+	}
+
+	.balance-amount {
+		margin: 0 0 0.25rem 0;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #2563eb;
+	}
+
+	.balance-note {
+		margin: 0;
+		font-size: 0.875rem;
+		color: #64748b;
+		font-style: italic;
+	}
+
+	.set-balance-btn, .update-balance-btn {
+		background: #2563eb;
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.set-balance-btn:hover, .update-balance-btn:hover {
+		background: #1d4ed8;
+	}
+
+	.next-month-setup {
+		background: #f0f9ff;
+		border: 1px solid #bae6fd;
+		border-radius: 8px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+		text-align: center;
+	}
+
+	.next-month-setup p {
+		margin: 0 0 0.75rem 0;
+		color: #0369a1;
+		font-weight: 500;
+	}
+
+	.setup-next-btn {
+		background: #10b981;
+		color: white;
+		padding: 0.5rem 1rem;
+		border: none;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.setup-next-btn:hover {
+		background: #059669;
+	}
+
+	.opening-balance-form {
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		border-radius: 8px;
+		padding: 1.5rem;
+		margin-top: 1rem;
+	}
+
+	.opening-balance-form h4 {
+		margin: 0 0 1rem 0;
+		color: #1e293b;
+		font-size: 1rem;
+		font-weight: 600;
+	}
+
+	.form-actions {
+		display: flex;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+
+	.save-btn {
+		background: #10b981;
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.save-btn:hover {
+		background: #059669;
+	}
+
+	.cancel-btn {
+		background: #6b7280;
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.cancel-btn:hover {
+		background: #4b5563;
+	}
+
 	/* Summary Cards */
 	.summary-cards {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 		gap: 1rem;
 		margin-bottom: 2rem;
 	}
@@ -511,6 +774,10 @@ Current Balance: ${formatCurrency(balance)}
 		border-left: 4px solid #10b981;
 	}
 
+	.opening-card {
+		border-left: 4px solid #2563eb;
+	}
+
 	.expense-card {
 		border-left: 4px solid #ef4444;
 	}
@@ -529,69 +796,6 @@ Current Balance: ${formatCurrency(balance)}
 
 	.balance-card.positive .amount {
 		color: #10b981;
-	}
-
-	/* Breakdown Cards */
-	.breakdown-cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.breakdown-section {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	}
-
-	.breakdown-section h3 {
-		margin: 0 0 1rem 0;
-		color: #1e293b;
-		font-size: 1.125rem;
-		font-weight: 600;
-		text-align: center;
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid #e2e8f0;
-	}
-
-	.breakdown-stats {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.stat-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.5rem 0;
-	}
-
-	.stat-item.total {
-		border-top: 1px solid #e2e8f0;
-		padding-top: 0.75rem;
-		margin-top: 0.5rem;
-		font-weight: 600;
-	}
-
-	.stat-label {
-		color: #64748b;
-		font-size: 0.875rem;
-	}
-
-	.stat-value {
-		font-weight: 600;
-		font-size: 1rem;
-	}
-
-	.stat-value.income {
-		color: #10b981;
-	}
-
-	.stat-value.expense {
-		color: #ef4444;
 	}
 
 	/* Transaction Form */
@@ -840,10 +1044,58 @@ Current Balance: ${formatCurrency(balance)}
 		color: white;
 	}
 
+	.transaction-count {
+		text-align: center;
+		margin-top: 1.5rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.transaction-count p {
+		margin: 0;
+		color: #64748b;
+		font-size: 0.875rem;
+		font-style: italic;
+	}
+
 	/* Responsive Design */
 	@media (max-width: 768px) {
 		.dashboard {
 			gap: 1.5rem;
+		}
+
+		.month-selector {
+			flex-direction: column;
+			align-items: stretch;
+			text-align: center;
+		}
+
+		.opening-balance-section {
+			padding: 1rem;
+		}
+
+		.balance-info {
+			flex-direction: column;
+			align-items: stretch;
+			text-align: center;
+		}
+
+		.form-actions {
+			flex-direction: column;
+		}
+
+		.selector-container {
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+
+		.selector-container select {
+			min-width: auto;
+			width: 100%;
+		}
+
+		.selected-month-display h2 {
+			font-size: 1.25rem;
 		}
 
 		.summary-cards {
