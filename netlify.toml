@@ -12,6 +12,11 @@
   PUBLIC_FIREBASE_APP_ID = "1:760445178280:web:e4dd4b7dad7d8bbdc74d9d"
   PUBLIC_FIREBASE_MEASUREMENT_ID = "G-J2XY30Y47T"
 
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 # Optional: Environment variables for Firebase (if needed in production)
 # [build.environment]
 #   VITE_FIREBASE_API_KEY = "your-api-key"

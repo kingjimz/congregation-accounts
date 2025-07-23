@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-netlify';
+import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -8,11 +8,10 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		// Using Netlify adapter for continuous deployment
+		// Using static adapter for SPA deployment
 		adapter: adapter({
-			// Optional: configure Netlify-specific options
-			edge: false, // Set to true if you want to use Netlify Edge Functions
-			split: false // Set to true to split your app into multiple functions
+			// Generate a single-page app (SPA)
+			fallback: 'index.html'
 		})
 	}
 };
