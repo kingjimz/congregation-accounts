@@ -1,67 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { transactions, loading, error, transactionStore } from '$lib/stores/transactions';
+	import type { Transaction } from '$lib/firestore';
 
-	// Transaction interface
-	interface Transaction {
-		id: string;
-		date: string;
-		description: string;
-		category: string;
-		amount: number;
-		type: 'income' | 'expense';
-	}
-
-	// Sample data - in a real app, this would come from a database
-	let transactions: Transaction[] = [
-		{
-			id: '1',
-			date: '2025-07-20',
-			description: 'Monthly Worldwide Work Contribution',
-			category: 'Worldwide Work Donations',
-			amount: 250.00,
-			type: 'income'
-		},
-		{
-			id: '2',
-			date: '2025-07-19',
-			description: 'Sent to Worldwide Work',
-			category: 'Worldwide Work Expenses',
-			amount: 200.00,
-			type: 'expense'
-		},
-		{
-			id: '3',
-			date: '2025-07-18',
-			description: 'Kingdom Hall Maintenance',
-			category: 'Local Congregation Expenses',
-			amount: 125.50,
-			type: 'expense'
-		},
-		{
-			id: '4',
-			date: '2025-07-15',
-			description: 'Literature Contribution',
-			category: 'Literature Contributions',
-			amount: 75.00,
-			type: 'income'
-		},
-		{
-			id: '5',
-			date: '2025-07-14',
-			description: 'Local Congregation Donation',
-			category: 'Local Congregation Donations',
-			amount: 180.00,
-			type: 'income'
-		},
-		{
-			id: '6',
-			date: '2025-07-12',
-			description: 'Utilities - Electric',
-			category: 'Local Congregation Expenses',
-			amount: 89.25,
-			type: 'expense'
-		}
-	];
+	// Reactive variable to track if data is being submitted
+	let submitting = false;
 
 	// Form state for new transactions
 	let newTransaction = {
@@ -94,6 +37,8 @@
 	// Test Firebase connection on component mount
 	onMount(async () => {
 		console.log('Main dashboard loaded for authenticated user');
+		// Load transactions from Firestore
+		await transactionStore.loadTransactions();
 	});
 
 	// Get categories based on selected type
@@ -109,62 +54,88 @@
 	}
 
 	// Computed values for dashboard summary
-	$: totalIncome = transactions
+	$: totalIncome = $transactions
 		.filter(t => t.type === 'income')
 		.reduce((sum, t) => sum + t.amount, 0);
 
-	$: totalExpenses = transactions
+	$: totalExpenses = $transactions
 		.filter(t => t.type === 'expense')
 		.reduce((sum, t) => sum + t.amount, 0);
 
 	$: balance = totalIncome - totalExpenses;
 
-	$: recentTransactions = transactions
+	$: recentTransactions = $transactions
 		.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 		.slice(0, 5);
 
 	// Calculate Worldwide Work and Local Congregation breakdowns
-	$: worldwideWorkIncome = transactions
+	$: worldwideWorkIncome = $transactions
 		.filter(t => t.type === 'income' && t.category.includes('Worldwide Work'))
 		.reduce((sum, t) => sum + t.amount, 0);
 		
-	$: worldwideWorkExpenses = transactions
+	$: worldwideWorkExpenses = $transactions
 		.filter(t => t.type === 'expense' && t.category.includes('Worldwide Work'))
 		.reduce((sum, t) => sum + t.amount, 0);
 
-	$: localIncome = transactions
+	$: localIncome = $transactions
 		.filter(t => t.type === 'income' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
 		.reduce((sum, t) => sum + t.amount, 0);
 		
-	$: localExpenses = transactions
+	$: localExpenses = $transactions
 		.filter(t => t.type === 'expense' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
 		.reduce((sum, t) => sum + t.amount, 0);
 
 	// Functions
-	function addTransaction() {
+	async function addTransaction() {
 		if (!newTransaction.description || !newTransaction.category || newTransaction.amount <= 0) {
 			alert('Please fill in all fields with valid values');
 			return;
 		}
 
-		const transaction: Transaction = {
-			id: Date.now().toString(),
-			date: new Date().toISOString().split('T')[0],
-			description: newTransaction.description,
-			category: newTransaction.category,
-			amount: newTransaction.amount,
-			type: newTransaction.type
-		};
+		submitting = true;
+		try {
+			const transactionData = {
+				date: new Date().toISOString().split('T')[0],
+				description: newTransaction.description,
+				category: newTransaction.category,
+				amount: newTransaction.amount,
+				type: newTransaction.type
+			};
 
-		transactions = [transaction, ...transactions];
-		
-		// Reset form
-		newTransaction = {
-			description: '',
-			category: '',
-			amount: 0,
-			type: 'income'
-		};
+			await transactionStore.addTransaction(transactionData);
+			
+			// Reset form
+			newTransaction = {
+				description: '',
+				category: '',
+				amount: 0,
+				type: 'income'
+			};
+
+			console.log('Transaction added successfully');
+		} catch (err) {
+			console.error('Failed to add transaction:', err);
+			alert('Failed to add transaction. Please try again.');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	async function deleteTransactionById(id: string) {
+		if (!id) {
+			console.error('Transaction ID is required for deletion');
+			return;
+		}
+
+		if (confirm('Are you sure you want to delete this transaction?')) {
+			try {
+				await transactionStore.deleteTransaction(id);
+				console.log('Transaction deleted successfully');
+			} catch (err) {
+				console.error('Failed to delete transaction:', err);
+				alert('Failed to delete transaction. Please try again.');
+			}
+		}
 	}
 
 	function formatCurrency(amount: number): string {
@@ -184,32 +155,32 @@
 
 	function generateSummaryReport() {
 		// Calculate Worldwide Work totals
-		const worldwideWorkIncome = transactions
+		const worldwideWorkIncome = $transactions
 			.filter(t => t.type === 'income' && t.category.includes('Worldwide Work'))
 			.reduce((sum, t) => sum + t.amount, 0);
 			
-		const worldwideWorkExpenses = transactions
+		const worldwideWorkExpenses = $transactions
 			.filter(t => t.type === 'expense' && t.category.includes('Worldwide Work'))
 			.reduce((sum, t) => sum + t.amount, 0);
 
 		// Calculate Local Congregation totals
-		const localIncome = transactions
+		const localIncome = $transactions
 			.filter(t => t.type === 'income' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
 			.reduce((sum, t) => sum + t.amount, 0);
 			
-		const localExpenses = transactions
+		const localExpenses = $transactions
 			.filter(t => t.type === 'expense' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
 			.reduce((sum, t) => sum + t.amount, 0);
 
 		// General breakdown by category
-		const incomeByCategory = transactions
+		const incomeByCategory = $transactions
 			.filter(t => t.type === 'income')
 			.reduce((acc, t) => {
 				acc[t.category] = (acc[t.category] || 0) + t.amount;
 				return acc;
 			}, {} as Record<string, number>);
 
-		const expensesByCategory = transactions
+		const expensesByCategory = $transactions
 			.filter(t => t.type === 'expense')
 			.reduce((acc, t) => {
 				acc[t.category] = (acc[t.category] || 0) + t.amount;
@@ -250,6 +221,20 @@ Current Balance: ${formatCurrency(balance)}
 </script>
 
 <div class="dashboard">
+	<!-- Error Message -->
+	{#if $error}
+		<div class="error-message">
+			<p>⚠️ {$error}</p>
+			<button on:click={() => transactionStore.clearError()}>Dismiss</button>
+		</div>
+	{/if}
+
+	<!-- Loading Indicator -->
+	{#if $loading}
+		<div class="loading-indicator">
+			<p>🔄 Loading transactions...</p>
+		</div>
+	{/if}
 	<!-- Dashboard Summary Cards -->
 	<section class="summary-cards">
 		<div class="card income-card">
@@ -370,7 +355,9 @@ Current Balance: ${formatCurrency(balance)}
 				</div>
 			</div>
 
-			<button type="submit" class="add-btn">Add Transaction</button>
+			<button type="submit" class="add-btn" disabled={submitting || $loading}>
+				{submitting ? 'Adding...' : 'Add Transaction'}
+			</button>
 		</form>
 	</section>
 
@@ -393,20 +380,30 @@ Current Balance: ${formatCurrency(balance)}
 							<span class="date">{formatDate(transaction.date)}</span>
 						</div>
 					</div>
-					<div class="transaction-amount" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
-						{transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+					<div class="transaction-controls">
+						<div class="transaction-amount" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
+							{transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+						</div>
+						<button 
+							class="delete-btn"
+							on:click={() => deleteTransactionById(transaction.id!)}
+							title="Delete transaction"
+							disabled={$loading}
+						>
+							🗑️
+						</button>
 					</div>
 				</div>
 			{/each}
 
-			{#if transactions.length === 0}
+			{#if $transactions.length === 0 && !$loading}
 				<div class="no-transactions">
 					<p>No transactions yet. Add your first transaction above!</p>
 				</div>
 			{/if}
 		</div>
 
-		{#if transactions.length > 5}
+		{#if $transactions.length > 5}
 			<div class="view-all">
 				<a href="/transactions" class="view-all-btn">View All Transactions</a>
 			</div>
@@ -419,6 +416,49 @@ Current Balance: ${formatCurrency(balance)}
 		max-width: 1200px;
 		margin: 0 auto;
 		gap: 2rem;
+	}
+
+	/* Error and Loading States */
+	.error-message {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 8px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.error-message p {
+		margin: 0;
+		color: #dc2626;
+		font-weight: 500;
+	}
+
+	.error-message button {
+		background: #dc2626;
+		color: white;
+		border: none;
+		padding: 0.25rem 0.75rem;
+		border-radius: 4px;
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+
+	.loading-indicator {
+		background: #f0f9ff;
+		border: 1px solid #bae6fd;
+		border-radius: 8px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+		text-align: center;
+	}
+
+	.loading-indicator p {
+		margin: 0;
+		color: #0369a1;
+		font-weight: 500;
 	}
 
 	/* Summary Cards */
@@ -618,13 +658,19 @@ Current Balance: ${formatCurrency(balance)}
 		margin-top: 1rem;
 	}
 
-	.add-btn:hover {
+	.add-btn:hover:not(:disabled) {
 		background: #1d4ed8;
 		transform: translateY(-1px);
 	}
 
-	.add-btn:active {
+	.add-btn:active:not(:disabled) {
 		transform: translateY(0);
+	}
+
+	.add-btn:disabled {
+		background: #9ca3af;
+		cursor: not-allowed;
+		transform: none;
 	}
 
 	/* Recent Transactions */
@@ -719,6 +765,12 @@ Current Balance: ${formatCurrency(balance)}
 		font-weight: 500;
 	}
 
+	.transaction-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
 	.transaction-amount {
 		font-size: 1.125rem;
 		font-weight: 600;
@@ -730,6 +782,34 @@ Current Balance: ${formatCurrency(balance)}
 
 	.transaction-amount.expense {
 		color: #ef4444;
+	}
+
+	.delete-btn {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #dc2626;
+		padding: 0.5rem;
+		border-radius: 6px;
+		cursor: pointer;
+		font-size: 0.875rem;
+		transition: all 0.2s;
+		min-width: 36px;
+		height: 36px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.delete-btn:hover:not(:disabled) {
+		background: #fee2e2;
+		border-color: #fca5a5;
+		transform: scale(1.05);
+	}
+
+	.delete-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+		transform: none;
 	}
 
 	.no-transactions {
@@ -792,8 +872,10 @@ Current Balance: ${formatCurrency(balance)}
 			gap: 0.5rem;
 		}
 
-		.transaction-amount {
+		.transaction-controls {
 			align-self: flex-end;
+			width: 100%;
+			justify-content: space-between;
 		}
 	}
 
