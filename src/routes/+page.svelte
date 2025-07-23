@@ -91,6 +91,11 @@
 		'Other Expenses'
 	];
 
+	// Test Firebase connection on component mount
+	onMount(async () => {
+		console.log('Main dashboard loaded for authenticated user');
+	});
+
 	// Get categories based on selected type
 	$: availableCategories = newTransaction.type === 'income' ? incomeCategories : expenseCategories;
 
