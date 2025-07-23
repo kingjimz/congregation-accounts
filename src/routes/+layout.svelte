@@ -5,12 +5,18 @@
 	import SetupNotice from '$lib/components/SetupNotice.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 
 	let { children } = $props();
 
 	let showingAuth = $state(false);
 	let showSetupNotice = $state(false);
 	let setupInstructions = $state('');
+	
+	// Navigation visibility state
+	let showBottomNav = $state(true);
+	let lastScrollY = $state(0);
+	let scrollTimeout: number;
 
 	// Show auth component when user is not authenticated
 	$effect(() => {
@@ -22,18 +28,69 @@
 		showSetupNotice = $error?.includes('operation-not-allowed') || false;
 	});
 
-	onMount(async () => {
+	onMount(() => {
 		// Show setup instructions if there's an auth setup error
 		if ($error && $error.includes('operation-not-allowed')) {
-			const { getFirebaseSetupInstructions } = await import('$lib/firebase-setup-helper');
-			setupInstructions = getFirebaseSetupInstructions();
-			console.log(setupInstructions);
+			import('$lib/firebase-setup-helper').then(({ getFirebaseSetupInstructions }) => {
+				setupInstructions = getFirebaseSetupInstructions();
+				console.log(setupInstructions);
+			});
 		}
+
+		// Handle scroll events for bottom navigation visibility
+		const handleScroll = () => {
+			const currentScrollY = window.scrollY;
+			const scrollThreshold = 50; // Minimum scroll distance to trigger hide/show
+			const scrollDelta = Math.abs(currentScrollY - lastScrollY);
+
+			// Only react to scroll changes above the threshold to avoid sensitivity
+			if (scrollDelta < scrollThreshold) return;
+
+			// Clear any existing timeout to debounce rapid scroll events
+			if (scrollTimeout) {
+				clearTimeout(scrollTimeout);
+			}
+
+			// Debounce the scroll handling to prevent flicker
+			scrollTimeout = setTimeout(() => {
+				// Show nav when scrolling up, hide when scrolling down
+				if (currentScrollY < lastScrollY) {
+					// Scrolling up - show navigation
+					showBottomNav = true;
+				} else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+					// Scrolling down and past initial area - hide navigation
+					showBottomNav = false;
+				}
+
+				// Always show nav when near the top of the page
+				if (currentScrollY < 100) {
+					showBottomNav = true;
+				}
+
+				lastScrollY = currentScrollY;
+			}, 100); // 100ms debounce delay
+		};
+
+		// Initialize last scroll position
+		lastScrollY = window.scrollY;
+
+		// Add scroll event listener
+		window.addEventListener('scroll', handleScroll, { passive: true });
+
+		// Cleanup function
+		return () => {
+			window.removeEventListener('scroll', handleScroll);
+			if (scrollTimeout) {
+				clearTimeout(scrollTimeout);
+			}
+		};
 	});
 
 	function handleAuthSuccess() {
 		// User state will be updated automatically by the auth store
 		console.log('Authentication successful');
+		// Redirect to home page after successful authentication
+		goto('/');
 	}
 
 	async function handleSignOut() {
@@ -90,7 +147,7 @@
 		</main>
 
 		<!-- Bottom Navigation -->
-		<nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 shadow-lg">
+		<nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 shadow-lg transition-transform duration-300 ease-in-out {showBottomNav ? 'translate-y-0' : 'translate-y-full'}">
 			<div class="flex justify-center max-w-md mx-auto px-2">
 				<a 
 					href="/" 

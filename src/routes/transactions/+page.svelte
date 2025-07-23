@@ -27,6 +27,17 @@
 	let openingBalanceNote = '';
 	let editingOpeningBalance = false;
 
+	// Update transaction modal state
+	let showUpdateTransactionModal = false;
+	let updateTransactionData: Transaction | null = null;
+	let updateForm = {
+		date: '',
+		description: '',
+		category: '',
+		amount: 0,
+		type: 'income' as 'income' | 'expense'
+	};
+
 	// Load transactions on component mount
 	onMount(async () => {
 		await transactionStore.loadTransactions();
@@ -301,6 +312,48 @@
 		}
 	}
 
+	function openUpdateTransactionModal(transaction: Transaction) {
+		updateTransactionData = transaction;
+		updateForm = {
+			date: transaction.date,
+			description: transaction.description,
+			category: transaction.category,
+			amount: transaction.amount,
+			type: transaction.type
+		};
+		showUpdateTransactionModal = true;
+	}
+
+	function closeUpdateTransactionModal() {
+		showUpdateTransactionModal = false;
+		updateTransactionData = null;
+		updateForm = {
+			date: '',
+			description: '',
+			category: '',
+			amount: 0,
+			type: 'income'
+		};
+	}
+
+	async function saveUpdatedTransaction() {
+		if (!updateTransactionData?.id) return;
+
+		try {
+			await transactionStore.updateTransaction(updateTransactionData.id, {
+				date: updateForm.date,
+				description: updateForm.description,
+				category: updateForm.category,
+				amount: updateForm.amount,
+				type: updateForm.type
+			});
+			closeUpdateTransactionModal();
+		} catch (err) {
+			console.error('Failed to update transaction:', err);
+			alert('Failed to update transaction. Please try again.');
+		}
+	}
+
 	function clearFilters() {
 		searchTerm = '';
 		filterType = 'all';
@@ -428,7 +481,7 @@
 			
 			<div class="balance-flow">
 				<div class="balance-item opening">
-					<h4>Opening Balance</h4>
+					<h4>Start of month balance</h4>
 					<p class="balance-amount" class:income={monthlyBalanceData.openingBalance >= 0} class:expense={monthlyBalanceData.openingBalance < 0}>
 						{formatCurrency(monthlyBalanceData.openingBalance)}
 					</p>
@@ -457,7 +510,7 @@
 				</div>
 
 				<div class="balance-item closing">
-					<h4>Closing Balance</h4>
+					<h4>End of month balance</h4>
 					<p class="balance-amount" class:income={monthlyBalanceData.closingBalance >= 0} class:expense={monthlyBalanceData.closingBalance < 0}>
 						{formatCurrency(monthlyBalanceData.closingBalance)}
 					</p>
@@ -628,9 +681,18 @@
 						</div>
 						<div class="col-actions">
 							<button 
+								class="edit-btn" 
+								on:click={() => openUpdateTransactionModal(transaction)}
+								disabled={$loading}
+								title="Edit transaction"
+							>
+								✏️
+							</button>
+							<button 
 								class="delete-btn" 
 								on:click={() => deleteTransaction(transaction.id!)}
 								disabled={$loading}
+								title="Delete transaction"
 							>
 								🗑️
 							</button>
@@ -712,6 +774,90 @@
 					{/if}
 					<button class="btn-primary" on:click={saveOpeningBalance}>
 						Save Balance
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Update Transaction Modal -->
+	{#if showUpdateTransactionModal && updateTransactionData}
+		<div class="modal-overlay" on:click={closeUpdateTransactionModal}>
+			<div class="modal-content" on:click|stopPropagation>
+				<div class="modal-header">
+					<h3>Update Transaction</h3>
+					<button class="modal-close" on:click={closeUpdateTransactionModal}>×</button>
+				</div>
+				
+				<div class="modal-body">
+					<form on:submit|preventDefault={saveUpdatedTransaction}>
+						<div class="form-group">
+							<label for="update-date">Date:</label>
+							<input 
+								id="update-date"
+								type="date" 
+								bind:value={updateForm.date}
+								required
+							/>
+						</div>
+						
+						<div class="form-group">
+							<label for="update-description">Description:</label>
+							<input 
+								id="update-description"
+								type="text" 
+								bind:value={updateForm.description}
+								placeholder="Transaction description"
+								required
+							/>
+						</div>
+						
+						<div class="form-group">
+							<label for="update-category">Category:</label>
+							<input 
+								id="update-category"
+								type="text" 
+								bind:value={updateForm.category}
+								placeholder="Transaction category"
+								list="category-list"
+								required
+							/>
+							<datalist id="category-list">
+								{#each categories as category}
+									<option value={category}></option>
+								{/each}
+							</datalist>
+						</div>
+						
+						<div class="form-group">
+							<label for="update-type">Type:</label>
+							<select id="update-type" bind:value={updateForm.type} required>
+								<option value="income">Income</option>
+								<option value="expense">Expense</option>
+							</select>
+						</div>
+						
+						<div class="form-group">
+							<label for="update-amount">Amount:</label>
+							<input 
+								id="update-amount"
+								type="number" 
+								step="0.01" 
+								min="0"
+								bind:value={updateForm.amount}
+								placeholder="0.00"
+								required
+							/>
+						</div>
+					</form>
+				</div>
+				
+				<div class="modal-footer">
+					<button class="btn-secondary" on:click={closeUpdateTransactionModal}>
+						Cancel
+					</button>
+					<button class="btn-primary" on:click={saveUpdatedTransaction}>
+						Update Transaction
 					</button>
 				</div>
 			</div>
@@ -1284,6 +1430,13 @@
 		color: #ef4444;
 	}
 
+	.col-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: center;
+	}
+
+	.edit-btn,
 	.delete-btn {
 		background: none;
 		border: none;
@@ -1294,10 +1447,15 @@
 		font-size: 1rem;
 	}
 
+	.edit-btn:hover:not(:disabled) {
+		background: #dbeafe;
+	}
+
 	.delete-btn:hover:not(:disabled) {
 		background: #fee2e2;
 	}
 
+	.edit-btn:disabled,
 	.delete-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
@@ -1387,7 +1545,8 @@
 	}
 
 	.form-group input,
-	.form-group textarea {
+	.form-group textarea,
+	.form-group select {
 		width: 100%;
 		padding: 0.75rem;
 		border: 1px solid #d1d5db;
@@ -1398,7 +1557,8 @@
 	}
 
 	.form-group input:focus,
-	.form-group textarea:focus {
+	.form-group textarea:focus,
+	.form-group select:focus {
 		outline: none;
 		border-color: #2563eb;
 		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -1484,11 +1644,10 @@
 	@media (max-width: 1024px) {
 		.table-header,
 		.table-row {
-			grid-template-columns: 1fr 2fr 1fr 1fr;
+			grid-template-columns: 2fr 1fr 1fr auto;
 		}
 		
-		.col-type,
-		.col-actions {
+		.col-date {
 			display: none;
 		}
 	}
@@ -1569,9 +1728,13 @@
 			display: none;
 		}
 
-		.col-date::before { content: "Date: "; font-weight: 600; }
 		.col-description::before { content: "Description: "; font-weight: 600; }
-		.col-category::before { content: "Category: "; font-weight: 600; }
+		.col-type::before { content: "Type: "; font-weight: 600; }
 		.col-amount::before { content: "Amount: "; font-weight: 600; }
+		.col-actions::before { content: "Actions: "; font-weight: 600; }
+		
+		.col-date {
+			display: none;
+		}
 	}
 </style>
