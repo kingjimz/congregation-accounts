@@ -3,7 +3,14 @@
   publish = "build"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
+  PUBLIC_FIREBASE_API_KEY = "AIzaSyCOb4ZPj9AytUUqAzuD1UmcSDDwuO8wSCc"
+  PUBLIC_FIREBASE_AUTH_DOMAIN = "congregation-reports-c3114.firebaseapp.com"
+  PUBLIC_FIREBASE_PROJECT_ID = "congregation-reports-c3114"
+  PUBLIC_FIREBASE_STORAGE_BUCKET = "congregation-reports-c3114.firebasestorage.app"
+  PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "760445178280"
+  PUBLIC_FIREBASE_APP_ID = "1:760445178280:web:e4dd4b7dad7d8bbdc74d9d"
+  PUBLIC_FIREBASE_MEASUREMENT_ID = "G-J2XY30Y47T"
 
 # Optional: Environment variables for Firebase (if needed in production)
 # [build.environment]
