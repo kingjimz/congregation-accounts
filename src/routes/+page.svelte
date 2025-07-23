@@ -238,77 +238,119 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	}
 </script>
 
-<div class="dashboard">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 	<!-- Error Message -->
 	{#if $error}
-		<div class="error-message">
-			<p>⚠️ {$error}</p>
-			<button on:click={() => transactionStore.clearError()}>Dismiss</button>
+		<div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
+			<p class="text-red-800 font-medium flex items-center">
+				<span class="text-xl mr-2">⚠️</span>
+				{$error}
+			</p>
+			<button 
+				on:click={() => transactionStore.clearError()}
+				class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+			>
+				Dismiss
+			</button>
 		</div>
 	{/if}
 
 	<!-- Loading Indicator -->
 	{#if $loading}
-		<div class="loading-indicator">
-			<p>🔄 Loading transactions...</p>
+		<div class="bg-indigo-50 border border-indigo-200 rounded-xl p-6 shadow-sm">
+			<p class="text-indigo-900 font-medium text-center flex items-center justify-center">
+				<span class="text-2xl mr-3 animate-spin">🔄</span>
+				Loading transactions...
+			</p>
 		</div>
 	{/if}
 
 	<!-- Month Selector -->
-	<section class="month-selector">
-		<div class="selector-container">
-			<label for="month-select">Select Month:</label>
-			<select id="month-select" bind:value={selectedMonth}>
-				{#each availableMonths as month}
-					<option value={month}>{formatMonthYear(month)}</option>
-				{/each}
-				{#if availableMonths.length === 0}
-					<option value={selectedMonth}>{formatMonthYear(selectedMonth)}</option>
-				{/if}
-			</select>
-		</div>
-		<div class="selected-month-display">
-			<h2>📅 {formatMonthYear(selectedMonth)} Report</h2>
+	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+			<div class="flex flex-col sm:flex-row sm:items-center gap-4">
+				<label for="month-select" class="text-gray-800 font-semibold text-lg">Select Month:</label>
+				<select 
+					id="month-select" 
+					bind:value={selectedMonth}
+					class="px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 min-w-48 shadow-sm"
+				>
+					{#each availableMonths as month}
+						<option value={month}>{formatMonthYear(month)}</option>
+					{/each}
+					{#if availableMonths.length === 0}
+						<option value={selectedMonth}>{formatMonthYear(selectedMonth)}</option>
+					{/if}
+				</select>
+			</div>
+			<div>
+				<h2 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+					📅 {formatMonthYear(selectedMonth)} Report
+				</h2>
+			</div>
 		</div>
 	</section>
 
 	<!-- Opening Balance Section -->
-	<section class="opening-balance-section">
-		<div class="balance-info">
-			<div class="current-opening-balance">
-				<h3>💰 Opening Balance</h3>
-				<p class="balance-amount">{formatCurrency(openingBalanceAmount)}</p>
+	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+			<div class="flex-1">
+				<h3 class="text-xl font-bold text-gray-900 mb-3 flex items-center">
+					<span class="text-3xl mr-3">💰</span>
+					Opening Balance
+				</h3>
+				<p class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent mb-2">
+					{formatCurrency(openingBalanceAmount)}
+				</p>
 				{#if currentOpeningBalance?.note}
-					<p class="balance-note">{currentOpeningBalance.note}</p>
+					<p class="text-sm text-gray-600 italic bg-gray-50 px-3 py-1 rounded-lg inline-block">
+						{currentOpeningBalance.note}
+					</p>
 				{/if}
 			</div>
 			
 			{#if !currentOpeningBalance}
-				<button class="set-balance-btn" on:click={() => showOpeningBalanceForm = true}>
+				<button 
+					class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+					on:click={() => showOpeningBalanceForm = true}
+				>
 					Set Opening Balance
 				</button>
 			{:else}
-				<button class="update-balance-btn" on:click={() => showOpeningBalanceForm = true}>
+				<button 
+					class="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+					on:click={() => showOpeningBalanceForm = true}
+				>
 					Update Opening Balance
 				</button>
 			{/if}
 		</div>
 
 		{#if shouldSetupNextMonth}
-			<div class="next-month-setup">
-				<p>💡 Ready to setup {formatMonthYear(nextMonth)}?</p>
-				<button class="setup-next-btn" on:click={setupNextMonthBalance}>
+			<div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-4">
+				<p class="text-indigo-900 font-medium mb-3 flex items-center">
+					<span class="text-xl mr-2">💡</span>
+					Ready to setup {formatMonthYear(nextMonth)}?
+				</p>
+				<button 
+					class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+					on:click={setupNextMonthBalance}
+				>
 					Forward Balance to {formatMonthYear(nextMonth)} ({formatCurrency(monthlyBalance)})
 				</button>
 			</div>
 		{/if}
 
 		{#if showOpeningBalanceForm}
-			<div class="opening-balance-form">
-				<h4>{currentOpeningBalance ? 'Update' : 'Set'} Opening Balance for {formatMonthYear(selectedMonth)}</h4>
-				<form on:submit|preventDefault={setOpeningBalance}>
-					<div class="form-group">
-						<label for="opening-balance">Opening Balance Amount</label>
+			<div class="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-6 mt-4 shadow-inner">
+				<h4 class="text-lg font-semibold text-gray-900 mb-4">
+					{currentOpeningBalance ? 'Update' : 'Set'} Opening Balance for {formatMonthYear(selectedMonth)}
+				</h4>
+				<form on:submit|preventDefault={setOpeningBalance} class="space-y-4">
+					<div>
+						<label for="opening-balance" class="block text-sm font-medium text-gray-700 mb-2">
+							Opening Balance Amount
+						</label>
 						<input
 							id="opening-balance"
 							type="number"
@@ -317,20 +359,35 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 							bind:value={newOpeningBalance}
 							placeholder="0.00"
 							required
+							class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
 						/>
 					</div>
-					<div class="form-group">
-						<label for="balance-note">Note (Optional)</label>
+					<div>
+						<label for="balance-note" class="block text-sm font-medium text-gray-700 mb-2">
+							Note (Optional)
+						</label>
 						<input
 							id="balance-note"
 							type="text"
 							bind:value={openingBalanceNote}
 							placeholder="e.g., Initial balance, Forwarded from previous month"
+							class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
 						/>
 					</div>
-					<div class="form-actions">
-						<button type="submit" class="save-btn">Save Opening Balance</button>
-						<button type="button" class="cancel-btn" on:click={() => showOpeningBalanceForm = false}>Cancel</button>
+					<div class="flex flex-col sm:flex-row gap-3">
+						<button 
+							type="submit" 
+							class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+						>
+							Save Opening Balance
+						</button>
+						<button 
+							type="button" 
+							class="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+							on:click={() => showOpeningBalanceForm = false}
+						>
+							Cancel
+						</button>
 					</div>
 				</form>
 			</div>
@@ -338,59 +395,80 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	</section>
 
 	<!-- Monthly Summary Cards -->
-	<section class="summary-cards">
-		<div class="card opening-card">
-			<div class="card-icon">🏦</div>
-			<div class="card-content">
-				<h3>Opening Balance</h3>
-				<p class="amount">{formatCurrency(openingBalanceAmount)}</p>
+	<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+		<div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+			<div class="flex items-center">
+				<div class="text-4xl mr-4">🏦</div>
+				<div class="flex-1">
+					<h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Opening Balance</h3>
+					<p class="text-2xl font-bold text-gray-900">{formatCurrency(openingBalanceAmount)}</p>
+				</div>
 			</div>
 		</div>
 
-		<div class="card income-card">
-			<div class="card-icon">💰</div>
-			<div class="card-content">
-				<h3>Monthly Income</h3>
-				<p class="amount">{formatCurrency(monthlyIncome)}</p>
+		<div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-white">
+			<div class="flex items-center">
+				<div class="text-4xl mr-4">💰</div>
+				<div class="flex-1">
+					<h3 class="text-sm font-semibold text-green-100 uppercase tracking-wide mb-1">Monthly Income</h3>
+					<p class="text-2xl font-bold">{formatCurrency(monthlyIncome)}</p>
+				</div>
 			</div>
 		</div>
 
-		<div class="card expense-card">
-			<div class="card-icon">💸</div>
-			<div class="card-content">
-				<h3>Monthly Expenses</h3>
-				<p class="amount">{formatCurrency(monthlyExpenses)}</p>
+		<div class="bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-white">
+			<div class="flex items-center">
+				<div class="text-4xl mr-4">💸</div>
+				<div class="flex-1">
+					<h3 class="text-sm font-semibold text-red-100 uppercase tracking-wide mb-1">Monthly Expenses</h3>
+					<p class="text-2xl font-bold">{formatCurrency(monthlyExpenses)}</p>
+				</div>
 			</div>
 		</div>
 
-		<div class="card balance-card" class:positive={monthlyBalance >= 0} class:negative={monthlyBalance < 0}>
-			<div class="card-icon">{monthlyBalance >= 0 ? '📈' : '📉'}</div>
-			<div class="card-content">
-				<h3>End of Month Balance</h3>
-				<p class="amount">{formatCurrency(monthlyBalance)}</p>
+		<div class="bg-gradient-to-br {monthlyBalance >= 0 ? 'from-indigo-500 to-purple-600' : 'from-orange-500 to-red-600'} rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-white">
+			<div class="flex items-center">
+				<div class="text-4xl mr-4">{monthlyBalance >= 0 ? '📈' : '📉'}</div>
+				<div class="flex-1">
+					<h3 class="text-sm font-semibold {monthlyBalance >= 0 ? 'text-indigo-100' : 'text-orange-100'} uppercase tracking-wide mb-1">End of Month Balance</h3>
+					<p class="text-2xl font-bold">{formatCurrency(monthlyBalance)}</p>
+				</div>
 			</div>
 		</div>
 	</section>
 
 	<!-- Quick Transaction Entry -->
-	<section class="transaction-form">
-		<h2>Add New Transaction</h2>
-		<form on:submit|preventDefault={addTransaction}>
-			<div class="form-row">
-				<div class="form-group">
-					<label for="description">Description</label>
+	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+		<h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+			<span class="text-3xl mr-3">✨</span>
+			Add New Transaction
+		</h2>
+		<form on:submit|preventDefault={addTransaction} class="space-y-6">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div>
+					<label for="description" class="block text-sm font-semibold text-gray-700 mb-2">
+						Description
+					</label>
 					<input
 						id="description"
 						type="text"
 						bind:value={newTransaction.description}
 						placeholder="Enter transaction description"
 						required
+						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
 					/>
 				</div>
 
-				<div class="form-group">
-					<label for="category">Category</label>
-					<select id="category" bind:value={newTransaction.category} required>
+				<div>
+					<label for="category" class="block text-sm font-semibold text-gray-700 mb-2">
+						Category
+					</label>
+					<select 
+						id="category" 
+						bind:value={newTransaction.category} 
+						required
+						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+					>
 						<option value="">Select category</option>
 						{#each availableCategories as category}
 							<option value={category}>{category}</option>
@@ -399,9 +477,11 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 				</div>
 			</div>
 
-			<div class="form-row">
-				<div class="form-group">
-					<label for="amount">Amount</label>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div>
+					<label for="amount" class="block text-sm font-semibold text-gray-700 mb-2">
+						Amount
+					</label>
 					<input
 						id="amount"
 						type="number"
@@ -410,739 +490,167 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 						bind:value={newTransaction.amount}
 						placeholder="0.00"
 						required
+						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
 					/>
 				</div>
 
-				<div class="form-group">
-					<label for="type">Type</label>
-					<select id="type" bind:value={newTransaction.type}>
-						<option value="income">Income</option>
-						<option value="expense">Expense</option>
+				<div>
+					<label for="type" class="block text-sm font-semibold text-gray-700 mb-2">
+						Type
+					</label>
+					<select 
+						id="type" 
+						bind:value={newTransaction.type}
+						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+					>
+						<option value="income">💰 Income</option>
+						<option value="expense">💸 Expense</option>
 					</select>
 				</div>
 			</div>
 
-			<button type="submit" class="add-btn" disabled={submitting || $loading}>
-				{submitting ? 'Adding...' : 'Add Transaction'}
+			<button 
+				type="submit" 
+				disabled={submitting || $loading}
+				class="w-full md:w-auto bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+			>
+				{submitting ? '✨ Adding...' : '➕ Add Transaction'}
 			</button>
 		</form>
 	</section>
 
 	<!-- Monthly Transactions -->
-	<section class="recent-transactions">
-		<div class="section-header">
-			<h2>Transactions for {formatMonthYear(selectedMonth)}</h2>
-			<button class="generate-summary-btn" on:click={generateMonthlyReport}>
-				Generate Monthly Report
+	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+			<h2 class="text-2xl font-bold text-gray-900 flex items-center">
+				<span class="text-3xl mr-3">📊</span>
+				Transactions for {formatMonthYear(selectedMonth)}
+			</h2>
+			<button 
+				class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+				on:click={generateMonthlyReport}
+			>
+				📋 Generate Report
 			</button>
 		</div>
 
-		<div class="transactions-list">
+		<div class="space-y-3">
 			{#each recentMonthlyTransactions as transaction (transaction.id)}
-				<div class="transaction-item" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
-					<div class="transaction-info">
-						<div class="transaction-description">{transaction.description}</div>
-						<div class="transaction-meta">
-							<span class="category">{transaction.category}</span>
-							<span class="date">{formatDate(transaction.date)}</span>
+				<div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-md {transaction.type === 'income' ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-red-500'}">
+					<div class="flex-1">
+						<div class="font-semibold text-gray-900 mb-1">{transaction.description}</div>
+						<div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+							<span class="bg-gradient-to-r from-gray-100 to-gray-200 px-3 py-1 rounded-full font-medium">
+								{transaction.category}
+							</span>
+							<span class="flex items-center">
+								<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+								</svg>
+								{formatDate(transaction.date)}
+							</span>
 						</div>
 					</div>
-					<div class="transaction-controls">
-						<div class="transaction-amount" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
+					<div class="flex items-center gap-3">
+						<div class="text-lg font-bold {transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}">
 							{transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
 						</div>
 						<button 
-							class="delete-btn"
+							class="bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 text-red-600 p-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md transform hover:-translate-y-0.5"
 							on:click={() => deleteTransactionById(transaction.id!)}
 							title="Delete transaction"
 							disabled={$loading}
 						>
-							🗑️
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+							</svg>
 						</button>
 					</div>
 				</div>
 			{/each}
 
 			{#if monthlyTransactions.length === 0 && !$loading}
-				<div class="no-transactions">
-					<p>No transactions found for {formatMonthYear(selectedMonth)}.</p>
-					<p>Add your first transaction above!</p>
+				<div class="text-center py-16 text-gray-500">
+					<div class="text-8xl mb-6">📝</div>
+					<p class="text-xl font-semibold mb-3 text-gray-700">No transactions found for {formatMonthYear(selectedMonth)}</p>
+					<p class="text-gray-600">Add your first transaction using the form above!</p>
 				</div>
 			{/if}
 		</div>
 
 		{#if monthlyTransactions.length > 10}
-			<div class="view-all">
-				<a href="/transactions" class="view-all-btn">View All Transactions ({monthlyTransactions.length} total)</a>
+			<div class="text-center mt-6 pt-6 border-t border-gray-200">
+				<a 
+					href="/transactions" 
+					class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+				>
+					📋 View All Transactions ({monthlyTransactions.length} total)
+				</a>
 			</div>
 		{:else if monthlyTransactions.length > 0}
-			<div class="transaction-count">
-				<p>Showing all {monthlyTransactions.length} transaction{monthlyTransactions.length === 1 ? '' : 's'} for this month</p>
+			<div class="text-center mt-6 pt-6 border-t border-gray-200">
+				<p class="text-sm text-gray-500 italic bg-gray-50 px-4 py-2 rounded-lg inline-block">
+					Showing all {monthlyTransactions.length} transaction{monthlyTransactions.length === 1 ? '' : 's'} for this month
+				</p>
 			</div>
 		{/if}
 	</section>
 </div>
 
 <style>
-	.dashboard {
-		max-width: 1200px;
-		margin: 0 auto;
-		gap: 2rem;
-	}
-
-	/* Error and Loading States */
-	.error-message {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		border-radius: 8px;
-		padding: 1rem;
-		margin-bottom: 1rem;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.error-message p {
-		margin: 0;
-		color: #dc2626;
-		font-weight: 500;
-	}
-
-	.error-message button {
-		background: #dc2626;
-		color: white;
-		border: none;
-		padding: 0.25rem 0.75rem;
-		border-radius: 4px;
-		font-size: 0.875rem;
-		cursor: pointer;
-	}
-
-	.loading-indicator {
-		background: #f0f9ff;
-		border: 1px solid #bae6fd;
-		border-radius: 8px;
-		padding: 1rem;
-		margin-bottom: 1rem;
-		text-align: center;
-	}
-
-	.loading-indicator p {
-		margin: 0;
-		color: #0369a1;
-		font-weight: 500;
-	}
-
-	/* Month Selector */
-	.month-selector {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		margin-bottom: 2rem;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 1rem;
-	}
-
-	.selector-container {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-
-	.selector-container label {
-		font-weight: 600;
-		color: #1e293b;
-		font-size: 1rem;
-	}
-
-	.selector-container select {
-		padding: 0.75rem 1rem;
-		border: 2px solid #e2e8f0;
-		border-radius: 8px;
-		font-size: 1rem;
-		font-weight: 500;
-		background: white;
-		color: #1e293b;
-		cursor: pointer;
-		transition: border-color 0.2s, box-shadow 0.2s;
-		min-width: 200px;
-	}
-
-	.selector-container select:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	}
-
-	.selected-month-display h2 {
-		margin: 0;
-		color: #1e293b;
-		font-size: 1.5rem;
-		font-weight: 700;
-	}
-
-	/* Opening Balance Section */
-	.opening-balance-section {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		margin-bottom: 2rem;
-	}
-
-	.balance-info {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-		flex-wrap: wrap;
-		gap: 1rem;
-	}
-
-	.current-opening-balance h3 {
-		margin: 0 0 0.5rem 0;
-		color: #1e293b;
-		font-size: 1.125rem;
-		font-weight: 600;
-	}
-
-	.balance-amount {
-		margin: 0 0 0.25rem 0;
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #2563eb;
-	}
-
-	.balance-note {
-		margin: 0;
-		font-size: 0.875rem;
-		color: #64748b;
-		font-style: italic;
-	}
-
-	.set-balance-btn, .update-balance-btn {
-		background: #2563eb;
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border: none;
-		border-radius: 8px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.set-balance-btn:hover, .update-balance-btn:hover {
-		background: #1d4ed8;
-	}
-
-	.next-month-setup {
-		background: #f0f9ff;
-		border: 1px solid #bae6fd;
-		border-radius: 8px;
-		padding: 1rem;
-		margin-bottom: 1rem;
-		text-align: center;
-	}
-
-	.next-month-setup p {
-		margin: 0 0 0.75rem 0;
-		color: #0369a1;
-		font-weight: 500;
-	}
-
-	.setup-next-btn {
-		background: #10b981;
-		color: white;
-		padding: 0.5rem 1rem;
-		border: none;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.setup-next-btn:hover {
-		background: #059669;
-	}
-
-	.opening-balance-form {
-		background: #f8fafc;
-		border: 1px solid #e2e8f0;
-		border-radius: 8px;
-		padding: 1.5rem;
-		margin-top: 1rem;
-	}
-
-	.opening-balance-form h4 {
-		margin: 0 0 1rem 0;
-		color: #1e293b;
-		font-size: 1rem;
-		font-weight: 600;
-	}
-
-	.form-actions {
-		display: flex;
-		gap: 0.75rem;
-		margin-top: 1rem;
-	}
-
-	.save-btn {
-		background: #10b981;
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border: none;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.save-btn:hover {
-		background: #059669;
-	}
-
-	.cancel-btn {
-		background: #6b7280;
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border: none;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.cancel-btn:hover {
-		background: #4b5563;
-	}
-
-	/* Summary Cards */
-	.summary-cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.card {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		transition: transform 0.2s, box-shadow 0.2s;
-	}
-
-	.card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-	}
-
-	.card-icon {
-		font-size: 2.5rem;
-		min-width: 60px;
-		text-align: center;
-	}
-
-	.card-content h3 {
-		margin: 0 0 0.5rem 0;
-		color: #64748b;
-		font-size: 0.875rem;
-		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.card-content .amount {
-		margin: 0;
-		font-size: 1.75rem;
-		font-weight: 700;
-		color: #1e293b;
-	}
-
-	.income-card {
-		border-left: 4px solid #10b981;
-	}
-
-	.opening-card {
-		border-left: 4px solid #2563eb;
-	}
-
-	.expense-card {
-		border-left: 4px solid #ef4444;
-	}
-
-	.balance-card.positive {
-		border-left: 4px solid #10b981;
-	}
-
-	.balance-card.negative {
-		border-left: 4px solid #ef4444;
-	}
-
-	.balance-card.negative .amount {
-		color: #ef4444;
-	}
-
-	.balance-card.positive .amount {
-		color: #10b981;
-	}
-
-	/* Transaction Form */
-	.transaction-form {
-		background: white;
-		border-radius: 12px;
-		padding: 2rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		margin-bottom: 2rem;
-	}
-
-	.transaction-form h2 {
-		margin: 0 0 1.5rem 0;
-		color: #1e293b;
-		font-size: 1.25rem;
-		font-weight: 600;
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-		margin-bottom: 1rem;
-	}
-
-	.form-group {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.form-group label {
-		margin-bottom: 0.5rem;
-		color: #374151;
-		font-weight: 500;
-		font-size: 0.875rem;
-	}
-
-	.form-group input,
-	.form-group select {
-		padding: 0.75rem;
-		border: 1px solid #d1d5db;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: border-color 0.2s, box-shadow 0.2s;
-	}
-
-	.form-group input:focus,
-	.form-group select:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	}
-
-	.add-btn {
-		background: #2563eb;
-		color: white;
-		padding: 0.75rem 2rem;
-		border: none;
-		border-radius: 8px;
-		font-size: 1rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s, transform 0.2s;
-		margin-top: 1rem;
-	}
-
-	.add-btn:hover:not(:disabled) {
-		background: #1d4ed8;
-		transform: translateY(-1px);
-	}
-
-	.add-btn:active:not(:disabled) {
-		transform: translateY(0);
-	}
-
-	.add-btn:disabled {
-		background: #9ca3af;
-		cursor: not-allowed;
-		transform: none;
-	}
-
-	/* Recent Transactions */
-	.recent-transactions {
-		background: white;
-		border-radius: 12px;
-		padding: 2rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	}
-
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
-
-	.section-header h2 {
-		margin: 0;
-		color: #1e293b;
-		font-size: 1.25rem;
-		font-weight: 600;
-	}
-
-	.generate-summary-btn {
-		background: #10b981;
-		color: white;
-		padding: 0.5rem 1rem;
-		border: none;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.generate-summary-btn:hover {
-		background: #059669;
-	}
-
-	.transactions-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.transaction-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1rem;
-		border: 1px solid #e5e7eb;
-		border-radius: 8px;
-		transition: border-color 0.2s, background-color 0.2s;
-	}
-
-	.transaction-item:hover {
-		border-color: #d1d5db;
-		background-color: #f9fafb;
-	}
-
-	.transaction-item.income {
-		border-left: 4px solid #10b981;
-	}
-
-	.transaction-item.expense {
-		border-left: 4px solid #ef4444;
-	}
-
-	.transaction-info {
-		flex: 1;
-	}
-
-	.transaction-description {
-		font-weight: 500;
-		color: #1e293b;
-		margin-bottom: 0.25rem;
-	}
-
-	.transaction-meta {
-		display: flex;
-		gap: 1rem;
-		font-size: 0.875rem;
-		color: #64748b;
-	}
-
-	.category {
-		background: #f1f5f9;
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-		font-size: 0.75rem;
-		font-weight: 500;
-	}
-
-	.transaction-controls {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.transaction-amount {
-		font-size: 1.125rem;
-		font-weight: 600;
-	}
-
-	.transaction-amount.income {
-		color: #10b981;
-	}
-
-	.transaction-amount.expense {
-		color: #ef4444;
-	}
-
-	.delete-btn {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: 0.5rem;
-		border-radius: 6px;
-		cursor: pointer;
-		font-size: 0.875rem;
-		transition: all 0.2s;
-		min-width: 36px;
-		height: 36px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.delete-btn:hover:not(:disabled) {
-		background: #fee2e2;
-		border-color: #fca5a5;
-		transform: scale(1.05);
-	}
-
-	.delete-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-		transform: none;
-	}
-
-	.no-transactions {
-		text-align: center;
-		padding: 3rem 1rem;
-		color: #64748b;
-	}
-
-	.view-all {
-		text-align: center;
-		margin-top: 1.5rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid #e5e7eb;
-	}
-
-	.view-all-btn {
-		color: #2563eb;
-		text-decoration: none;
-		font-weight: 500;
-		padding: 0.5rem 1rem;
-		border: 1px solid #2563eb;
-		border-radius: 6px;
-		transition: background-color 0.2s, color 0.2s;
-	}
-
-	.view-all-btn:hover {
-		background: #2563eb;
-		color: white;
-	}
-
-	.transaction-count {
-		text-align: center;
-		margin-top: 1.5rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid #e5e7eb;
-	}
-
-	.transaction-count p {
-		margin: 0;
-		color: #64748b;
-		font-size: 0.875rem;
-		font-style: italic;
-	}
-
-	/* Responsive Design */
-	@media (max-width: 768px) {
-		.dashboard {
-			gap: 1.5rem;
+	/* Custom animations and utilities for enhanced UX */
+	@keyframes fadeIn {
+		from { 
+			opacity: 0; 
+			transform: translateY(20px); 
 		}
-
-		.month-selector {
-			flex-direction: column;
-			align-items: stretch;
-			text-align: center;
-		}
-
-		.opening-balance-section {
-			padding: 1rem;
-		}
-
-		.balance-info {
-			flex-direction: column;
-			align-items: stretch;
-			text-align: center;
-		}
-
-		.form-actions {
-			flex-direction: column;
-		}
-
-		.selector-container {
-			flex-direction: column;
-			gap: 0.5rem;
-		}
-
-		.selector-container select {
-			min-width: auto;
-			width: 100%;
-		}
-
-		.selected-month-display h2 {
-			font-size: 1.25rem;
-		}
-
-		.summary-cards {
-			grid-template-columns: 1fr;
-			gap: 0.75rem;
-		}
-
-		.transaction-form,
-		.recent-transactions {
-			padding: 1.5rem;
-		}
-
-		.form-row {
-			grid-template-columns: 1fr;
-		}
-
-		.section-header {
-			flex-direction: column;
-			gap: 1rem;
-			align-items: stretch;
-		}
-
-		.transaction-item {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.5rem;
-		}
-
-		.transaction-controls {
-			align-self: flex-end;
-			width: 100%;
-			justify-content: space-between;
+		to { 
+			opacity: 1; 
+			transform: translateY(0); 
 		}
 	}
-
-	@media (max-width: 480px) {
-		.card {
-			padding: 1rem;
+	
+	@keyframes slideUp {
+		from {
+			opacity: 0;
+			transform: translateY(30px) scale(0.95);
 		}
-
-		.card-content .amount {
-			font-size: 1.5rem;
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
 		}
-
-		.transaction-form,
-		.recent-transactions {
-			padding: 1rem;
+	}
+	
+	@keyframes pulse {
+		0%, 100% {
+			transform: scale(1);
 		}
+		50% {
+			transform: scale(1.05);
+		}
+	}
+	
+	.animate-fade-in {
+		animation: fadeIn 0.5s ease-out;
+	}
+	
+	.animate-slide-up {
+		animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	
+	.animate-pulse-subtle {
+		animation: pulse 2s infinite;
+	}
+
+	/* Glassmorphism effect enhancements */
+	.glass-effect {
+		background: rgba(255, 255, 255, 0.85);
+		backdrop-filter: blur(20px);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+	}
+	
+	/* Custom gradient background */
+	.gradient-bg {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 	}
 </style>

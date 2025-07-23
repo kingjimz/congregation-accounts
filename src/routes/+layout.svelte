@@ -4,6 +4,7 @@
 	import Auth from '$lib/components/Auth.svelte';
 	import SetupNotice from '$lib/components/SetupNotice.svelte';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 
 	let { children } = $props();
 
@@ -39,62 +40,96 @@
 		const { signOut } = await import('$lib/stores/auth');
 		await signOut();
 	}
+
+	// Function to check if current route is active
+	function isActive(route: string): boolean {
+		if (route === '/' && $page.url.pathname === '/') return true;
+		if (route !== '/' && $page.url.pathname.startsWith(route)) return true;
+		return false;
+	}
 </script>
 
 {#if $loading}
-	<div class="loading-container">
-		<div class="loading-spinner"></div>
-		<p>Loading...</p>
+	<div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white">
+		<div class="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-6"></div>
+		<p class="text-xl font-medium">Loading...</p>
 	</div>
 {:else if showingAuth}
 	<Auth on:authSuccess={handleAuthSuccess} />
 {:else}
-	<div class="app">
+	<div class="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
 		<!-- Header -->
-		<header class="header">
-			<div class="header-content">
-				<h1>🏛️ Congregation Accounts</h1>
-				<div class="user-info">
-					<span>Welcome, {$user?.email}</span>
-					<button class="sign-out-btn" onclick={handleSignOut}>
-						Sign Out
-					</button>
+		<header class="bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex items-center justify-between py-6">
+					<h1 class="text-2xl font-bold text-white flex items-center">
+						<span class="text-3xl mr-3 drop-shadow-sm">🏛️</span>
+						<span class="bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+							Congregation Accounts
+						</span>
+					</h1>
+					<div class="flex items-center space-x-4">
+						<div class="hidden sm:block">
+							<span class="text-indigo-100 text-sm">Welcome back,</span>
+							<span class="text-white font-medium ml-1">{$user?.email?.split('@')[0]}</span>
+						</div>
+						<button 
+							onclick={handleSignOut}
+							class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 border border-white/20 hover:border-white/30 backdrop-blur-sm"
+						>
+							Sign Out
+						</button>
+					</div>
 				</div>
 			</div>
 		</header>
 
-		<!-- Main content area where pages are displayed -->
-		<main class="main-content">
+		<!-- Main content area -->
+		<main class="flex-1 pb-20">
 			{@render children()}
 		</main>
 
 		<!-- Bottom Navigation -->
-		<nav class="bottom-nav">
-			<a href="/" class="nav-item">
-				<!-- Home Icon (SVG) -->
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-					<path d="M3 10.75L12 4l9 6.75V20a1 1 0 0 1-1 1h-5v-5h-6v5H4a1 1 0 0 1-1-1V10.75z" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span>Home</span>
-			</a>
-			<a href="/transactions" class="nav-item">
-				<!-- Transactions Icon (SVG) -->
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-					<rect x="3" y="4" width="18" height="16" rx="2" stroke="#64748b" stroke-width="2"/>
-					<path d="M3 10h18" stroke="#64748b" stroke-width="2"/>
-					<circle cx="8" cy="7" r="1" fill="#64748b"/>
-					<circle cx="12" cy="7" r="1" fill="#64748b"/>
-					<circle cx="16" cy="7" r="1" fill="#64748b"/>
-				</svg>
-				<span>Transactions</span>
-			</a>
-			<a href="/settings" class="nav-item">
-				<!-- Settings Icon (SVG) -->
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-					<circle cx="12" cy="12" r="3" stroke="#64748b" stroke-width="2"/>
-				</svg>
-				<span>Settings</span>
-			</a>
+		<nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 shadow-lg">
+			<div class="flex justify-center max-w-md mx-auto px-2">
+				<a 
+					href="/" 
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}"
+				>
+					<svg class="w-6 h-6 mb-1 {isActive('/') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+					</svg>
+					<span class="text-xs font-medium {isActive('/') ? 'font-semibold' : ''}">Home</span>
+					{#if isActive('/')}
+						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
+					{/if}
+				</a>
+				<a 
+					href="/transactions" 
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/transactions') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}"
+				>
+					<svg class="w-6 h-6 mb-1 {isActive('/transactions') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+					</svg>
+					<span class="text-xs font-medium {isActive('/transactions') ? 'font-semibold' : ''}">Transactions</span>
+					{#if isActive('/transactions')}
+						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
+					{/if}
+				</a>
+				<a 
+					href="/settings" 
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/settings') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}"
+				>
+					<svg class="w-6 h-6 mb-1 {isActive('/settings') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+					</svg>
+					<span class="text-xs font-medium {isActive('/settings') ? 'font-semibold' : ''}">Settings</span>
+					{#if isActive('/settings')}
+						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
+					{/if}
+				</a>
+			</div>
 		</nav>
 	</div>
 {/if}
@@ -103,138 +138,25 @@
 <SetupNotice show={showSetupNotice} instructions={setupInstructions} />
 
 <style>
-	.loading-container {
-		min-height: 100vh;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		color: white;
-		gap: 1rem;
+	/* Custom scrollbar for better UX */
+	:global(html) {
+		scroll-behavior: smooth;
 	}
-
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 4px solid rgba(255, 255, 255, 0.3);
-		border-top: 4px solid white;
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
+	
+	:global(*::-webkit-scrollbar) {
+		width: 6px;
 	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
+	
+	:global(*::-webkit-scrollbar-track) {
+		background: #f1f5f9;
 	}
-
-	.app {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
+	
+	:global(*::-webkit-scrollbar-thumb) {
+		background: #cbd5e1;
+		border-radius: 3px;
 	}
-
-	.header {
-		background-color: #2563eb;
-		color: white;
-		padding: 1rem;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	}
-
-	.header-content {
-		max-width: 1200px;
-		margin: 0 auto;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.header h1 {
-		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 600;
-	}
-
-	.user-info {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		font-size: 0.875rem;
-	}
-
-	.sign-out-btn {
-		background: rgba(255, 255, 255, 0.2);
-		color: white;
-		padding: 0.5rem 1rem;
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.sign-out-btn:hover {
-		background: rgba(255, 255, 255, 0.3);
-	}
-
-	.main-content {
-		flex: 1;
-		padding: 1rem;
-		overflow-y: auto;
-	}
-
-	.bottom-nav {
-		display: flex;
-		background-color: #f8fafc;
-		border-top: 1px solid #e2e8f0;
-		padding: 0.5rem 0;
-	}
-
-	.nav-item {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 0.5rem;
-		text-decoration: none;
-		color: #64748b;
-		transition: color 0.2s;
-	}
-
-	.nav-item:hover {
-		color: #2563eb;
-	}
-
-	.nav-item span {
-		font-size: 0.875rem;
-		margin-top: 0.25rem;
-	}
-
-	/* Responsive design */
-	@media (max-width: 768px) {
-		.header-content {
-			flex-direction: column;
-			gap: 1rem;
-		}
-
-		.header h1 {
-			font-size: 1.25rem;
-		}
-
-		.user-info {
-			flex-direction: column;
-			gap: 0.5rem;
-			text-align: center;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.header {
-			padding: 0.75rem;
-		}
-		
-		.main-content {
-			padding: 0.75rem;
-		}
+	
+	:global(*::-webkit-scrollbar-thumb:hover) {
+		background: #94a3b8;
 	}
 </style>

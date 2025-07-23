@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Settings state
 	let settings = {
-		congregationName: 'Riverside Congregation',
+		congregationName: 'Bolaoen Congregation',
 		currency: 'USD',
 		language: 'en',
 		theme: 'light',

@@ -7,7 +7,7 @@
 	// Reactive variable to track if data is being submitted
 	let submitting = false;
 
-	// Filter and search state
+	// Filter and search state for transactions list
 	let searchTerm = '';
 	let filterType: 'all' | 'income' | 'expense' = 'all';
 	let filterCategory = '';
@@ -35,17 +35,6 @@
 
 	// Get unique categories
 	$: categories = [...new Set($transactions.map(t => t.category))].sort();
-
-	// Date range display
-	$: dateRangeText = (() => {
-		if (!startDate && !endDate) return '';
-		if (startDate && endDate) {
-			return `${formatDate(startDate)} - ${formatDate(endDate)}`;
-		}
-		if (startDate) return `From ${formatDate(startDate)}`;
-		if (endDate) return `Until ${formatDate(endDate)}`;
-		return '';
-	})();
 
 	// Filtered and sorted transactions
 	$: filteredTransactions = $transactions
@@ -90,33 +79,118 @@
 			}
 		});
 
-	// Summary calculations
-	$: filteredIncome = filteredTransactions
-		.filter(t => t.type === 'income')
-		.reduce((sum, t) => sum + t.amount, 0);
-		
-	$: filteredExpenses = filteredTransactions
-		.filter(t => t.type === 'expense')
-		.reduce((sum, t) => sum + t.amount, 0);
+	// Helper function to get next month string
+	function getNextMonth(monthString: string): string {
+		const [year, month] = monthString.split('-').map(Number);
+		const nextMonthDate = new Date(year, month, 1); // month is already 0-indexed after adding 1
+		return nextMonthDate.toISOString().slice(0, 7);
+	}
 
-	// Worldwide Work vs Local breakdown for filtered transactions
-	$: filteredWorldwideWorkIncome = filteredTransactions
-		.filter(t => t.type === 'income' && t.category.includes('Worldwide Work'))
-		.reduce((sum, t) => sum + t.amount, 0);
-		
-	$: filteredWorldwideWorkExpenses = filteredTransactions
-		.filter(t => t.type === 'expense' && t.category.includes('Worldwide Work'))
-		.reduce((sum, t) => sum + t.amount, 0);
+	// Helper function to get previous month string
+	function getPreviousMonth(monthString: string): string {
+		const [year, month] = monthString.split('-').map(Number);
+		const prevMonthDate = new Date(year, month - 2, 1); // month - 2 because month is 1-indexed
+		return prevMonthDate.toISOString().slice(0, 7);
+	}
 
-	$: filteredLocalIncome = filteredTransactions
-		.filter(t => t.type === 'income' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
-		.reduce((sum, t) => sum + t.amount, 0);
+	// Helper function to get all month strings from earliest transaction to a given month
+	function getMonthRange(fromMonth: string, toMonth: string): string[] {
+		const months: string[] = [];
+		let current = fromMonth;
 		
-	$: filteredLocalExpenses = filteredTransactions
-		.filter(t => t.type === 'expense' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
-		.reduce((sum, t) => sum + t.amount, 0);
+		while (current <= toMonth) {
+			months.push(current);
+			current = getNextMonth(current);
+		}
+		
+		return months;
+	}
 
-	// Monthly balance calculations
+	// Helper function to calculate opening balance for any month using proper month-to-month chaining
+	function calculateOpeningBalanceForMonth(monthString: string): number {
+		// Check if there's a manual opening balance for this month
+		const manualOpeningBalanceRecord = $openingBalances.find(ob => ob.month === monthString);
+		
+		if (manualOpeningBalanceRecord) {
+			return manualOpeningBalanceRecord.balance;
+		}
+		
+		// Find the earliest transaction month
+		if ($transactions.length === 0) {
+			return 0;
+		}
+		
+		const earliestTransaction = $transactions
+			.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+		const earliestMonth = new Date(earliestTransaction.date).toISOString().slice(0, 7);
+		
+		// If this is the earliest month, start with 0
+		if (monthString === earliestMonth) {
+			return 0;
+		}
+		
+		// Calculate month by month from the earliest month to get the proper opening balance
+		let runningBalance = 0;
+		const monthsToCalculate = getMonthRange(earliestMonth, getPreviousMonth(monthString));
+		
+		for (const month of monthsToCalculate) {
+			// Check for manual opening balance for this calculation month
+			const monthManualBalance = $openingBalances.find(ob => ob.month === month);
+			if (monthManualBalance) {
+				runningBalance = monthManualBalance.balance;
+			}
+			
+			// Add this month's activity
+			const [year, monthNum] = month.split('-').map(Number);
+			const startOfMonth = new Date(year, monthNum - 1, 1);
+			const endOfMonth = new Date(year, monthNum, 0);
+			
+			const transactionsInMonth = $transactions.filter(t => {
+				const transactionDate = new Date(t.date);
+				return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
+			});
+			
+			const monthIncome = transactionsInMonth
+				.filter(t => t.type === 'income')
+				.reduce((sum, t) => sum + t.amount, 0);
+			const monthExpenses = transactionsInMonth
+				.filter(t => t.type === 'expense')
+				.reduce((sum, t) => sum + t.amount, 0);
+			
+			runningBalance = runningBalance + monthIncome - monthExpenses;
+		}
+		
+		return runningBalance;
+	}
+
+	// Helper function to calculate closing balance for any month
+	function calculateClosingBalanceForMonth(monthString: string): number {
+		const [year, month] = monthString.split('-').map(Number);
+		const startOfMonth = new Date(year, month - 1, 1);
+		const endOfMonth = new Date(year, month, 0);
+		
+		// Get opening balance for this month
+		const openingBalance = calculateOpeningBalanceForMonth(monthString);
+		
+		// Get transactions for this month
+		const transactionsInMonth = $transactions.filter(t => {
+			const transactionDate = new Date(t.date);
+			return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
+		});
+		
+		// Calculate month activity
+		const monthIncome = transactionsInMonth
+			.filter(t => t.type === 'income')
+			.reduce((sum, t) => sum + t.amount, 0);
+		const monthExpenses = transactionsInMonth
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + t.amount, 0);
+		
+		// Return closing balance
+		return openingBalance + monthIncome - monthExpenses;
+	}
+
+	// Modified monthly balance calculations with proper next month opening balance logic
 	$: monthlyBalanceData = (() => {
 		const [year, month] = selectedMonth.split('-').map(Number);
 		const startOfMonth = new Date(year, month - 1, 1);
@@ -124,12 +198,6 @@
 		
 		// Check if there's a manual opening balance for this month
 		const manualOpeningBalanceRecord = $openingBalances.find(ob => ob.month === selectedMonth);
-		
-		// Get all transactions before the selected month (for calculated opening balance)
-		const transactionsBeforeMonth = $transactions.filter(t => {
-			const transactionDate = new Date(t.date);
-			return transactionDate < startOfMonth;
-		});
 		
 		// Get transactions for the selected month
 		const transactionsInMonth = $transactions.filter(t => {
@@ -145,14 +213,8 @@
 			openingBalance = manualOpeningBalanceRecord.balance;
 			isManualOpeningBalance = true;
 		} else {
-			// Calculate opening balance (all transactions before this month)
-			const openingIncome = transactionsBeforeMonth
-				.filter(t => t.type === 'income')
-				.reduce((sum, t) => sum + t.amount, 0);
-			const openingExpenses = transactionsBeforeMonth
-				.filter(t => t.type === 'expense')
-				.reduce((sum, t) => sum + t.amount, 0);
-			openingBalance = openingIncome - openingExpenses;
+			// Use the proper opening balance calculation
+			openingBalance = calculateOpeningBalanceForMonth(selectedMonth);
 		}
 		
 		// Calculate month activity
@@ -204,9 +266,9 @@
 	})();
 
 	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-US', {
+		return new Intl.NumberFormat('en-PH', {
 			style: 'currency',
-			currency: 'USD'
+			currency: 'PHP'
 		}).format(amount);
 	}
 
@@ -216,6 +278,10 @@
 			day: 'numeric',
 			year: 'numeric'
 		});
+	}
+
+	function setMonthFilter(monthValue: string) {
+		selectedMonth = monthValue;
 	}
 
 	async function deleteTransaction(id: string) {
@@ -277,37 +343,6 @@
 		}
 	}
 
-	function setMonthFilter(monthValue: string) {
-		const [year, month] = monthValue.split('-').map(Number);
-		const monthStart = new Date(year, month - 1, 1);
-		const monthEnd = new Date(year, month, 0);
-		
-		startDate = monthStart.toISOString().split('T')[0];
-		endDate = monthEnd.toISOString().split('T')[0];
-		selectedMonth = monthValue;
-	}
-
-	function exportTransactions() {
-		const csvContent = [
-			['Date', 'Description', 'Category', 'Type', 'Amount'],
-			...filteredTransactions.map(t => [
-				t.date,
-				t.description,
-				t.category,
-				t.type,
-				t.amount.toString()
-			])
-		].map(row => row.join(',')).join('\n');
-
-		const blob = new Blob([csvContent], { type: 'text/csv' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `congregation-transactions-${new Date().toISOString().split('T')[0]}.csv`;
-		a.click();
-		URL.revokeObjectURL(url);
-	}
-
 	function openOpeningBalanceModal() {
 		const existingBalance = $openingBalances.find(ob => ob.month === selectedMonth);
 		if (existingBalance) {
@@ -337,12 +372,14 @@
 		);
 		
 		if (success) {
+			// The opening balance change affects future months, so we need to recalculate
+			// The reactive statement will automatically update the display
 			closeOpeningBalanceModal();
 		}
 	}
 
 	async function deleteOpeningBalance() {
-		if (confirm('Are you sure you want to delete the manual opening balance? This will revert to the calculated balance.')) {
+		if (confirm('Are you sure you want to delete the manual opening balance? This will revert to using the previous month\'s closing balance.')) {
 			const success = await openingBalanceStore.deleteMonthOpeningBalance(selectedMonth);
 			if (success) {
 				closeOpeningBalanceModal();
@@ -368,79 +405,13 @@
 	{/if}
 
 	<div class="page-header">
-		<h1>All Transactions</h1>
-		<div class="header-buttons">
-			<button class="clear-filters-btn" on:click={clearFilters}>
-				🗑️ Clear Filters
-			</button>
-			<button class="export-btn" on:click={exportTransactions} disabled={$loading}>
-				📊 Export CSV
-			</button>
-		</div>
-	</div>
-
-	<!-- Summary Stats -->
-	<div class="summary-stats">
-		<div class="stat-card">
-			<h3>Filtered Income</h3>
-			<p class="amount income">{formatCurrency(filteredIncome)}</p>
-		</div>
-		<div class="stat-card">
-			<h3>Filtered Expenses</h3>
-			<p class="amount expense">{formatCurrency(filteredExpenses)}</p>
-		</div>
-		<div class="stat-card">
-			<h3>Net Amount</h3>
-			<p class="amount" class:income={filteredIncome - filteredExpenses >= 0} class:expense={filteredIncome - filteredExpenses < 0}>
-				{formatCurrency(filteredIncome - filteredExpenses)}
-			</p>
-		</div>
-		<div class="stat-card">
-			<h3>Total Records</h3>
-			<p class="count">{filteredTransactions.length}</p>
-			{#if dateRangeText}
-				<p class="date-range-info">📅 {dateRangeText}</p>
-			{/if}
-		</div>
-	</div>
-
-	<!-- Detailed Breakdown -->
-	<div class="detailed-breakdown">
-		<div class="breakdown-card">
-			<h3>🌍 Worldwide Work (Filtered)</h3>
-			<div class="breakdown-stats">
-				<div class="stat-item">
-					<span>Donations: {formatCurrency(filteredWorldwideWorkIncome)}</span>
-				</div>
-				<div class="stat-item">
-					<span>Expenses: {formatCurrency(filteredWorldwideWorkExpenses)}</span>
-				</div>
-				<div class="stat-item total">
-					<span>Balance: {formatCurrency(filteredWorldwideWorkIncome - filteredWorldwideWorkExpenses)}</span>
-				</div>
-			</div>
-		</div>
-		
-		<div class="breakdown-card">
-			<h3>🏛️ Local Congregation (Filtered)</h3>
-			<div class="breakdown-stats">
-				<div class="stat-item">
-					<span>Income: {formatCurrency(filteredLocalIncome)}</span>
-				</div>
-				<div class="stat-item">
-					<span>Expenses: {formatCurrency(filteredLocalExpenses)}</span>
-				</div>
-				<div class="stat-item total">
-					<span>Balance: {formatCurrency(filteredLocalIncome - filteredLocalExpenses)}</span>
-				</div>
-			</div>
-		</div>
+		<h1>Monthly Balance Report</h1>
 	</div>
 
 	<!-- Monthly Balance Report -->
 	<div class="monthly-balance-section">
 		<div class="monthly-balance-header">
-			<h2>📊 Monthly Balance Report</h2>
+			<h2>📊 Monthly Financial Summary</h2>
 			<div class="month-selector">
 				<label for="month-select">Select Month:</label>
 				<input 
@@ -464,7 +435,7 @@
 					{#if monthlyBalanceData.isManualOpeningBalance}
 						<p class="balance-type-indicator manual">📝 Manual Entry</p>
 					{:else}
-						<p class="balance-type-indicator calculated">🧮 Calculated</p>
+						<p class="balance-type-indicator calculated">🧮 Previous Month's Closing</p>
 					{/if}
 					{#if monthlyBalanceData.openingBalanceNote}
 						<p class="balance-note">💬 {monthlyBalanceData.openingBalanceNote}</p>
@@ -490,6 +461,7 @@
 					<p class="balance-amount" class:income={monthlyBalanceData.closingBalance >= 0} class:expense={monthlyBalanceData.closingBalance < 0}>
 						{formatCurrency(monthlyBalanceData.closingBalance)}
 					</p>
+					<p class="balance-note">This becomes next month's opening balance</p>
 				</div>
 			</div>
 
@@ -537,12 +509,141 @@
 
 			<div class="monthly-summary">
 				<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
-				<p><strong>Net Change:</strong> 
-					<span class="amount" class:income={monthlyBalanceData.monthIncome - monthlyBalanceData.monthExpenses >= 0} class:expense={monthlyBalanceData.monthIncome - monthlyBalanceData.monthExpenses < 0}>
-						{formatCurrency(monthlyBalanceData.monthIncome - monthlyBalanceData.monthExpenses)}
-					</span>
-				</p>
 			</div>
+		</div>
+	</div>
+
+	<!-- Filters and Transactions List -->
+	<div class="transactions-list-section">
+		<div class="transactions-header">
+			<h2>📋 All Transactions</h2>
+			<div class="header-actions">
+				<button class="clear-filters-btn" on:click={clearFilters}>
+					🗑️ Clear Filters
+				</button>
+			</div>
+		</div>
+
+		<!-- Filters -->
+		<div class="filters">
+			<div class="search-group">
+				<label for="search">Search</label>
+				<input
+					id="search"
+					type="text"
+					bind:value={searchTerm}
+					placeholder="Search transactions..."
+				/>
+			</div>
+
+			<div class="filter-group">
+				<label for="type-filter">Type</label>
+				<select id="type-filter" bind:value={filterType}>
+					<option value="all">All Types</option>
+					<option value="income">Income</option>
+					<option value="expense">Expense</option>
+				</select>
+			</div>
+
+			<div class="filter-group">
+				<label for="category-filter">Category</label>
+				<select id="category-filter" bind:value={filterCategory}>
+					<option value="">All Categories</option>
+					{#each categories as category}
+						<option value={category}>{category}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="filter-group">
+				<label for="sort-by">Sort By</label>
+				<select id="sort-by" bind:value={sortBy}>
+					<option value="date">Date</option>
+					<option value="amount">Amount</option>
+					<option value="description">Description</option>
+				</select>
+			</div>
+
+			<div class="filter-group">
+				<label for="sort-order">Order</label>
+				<select id="sort-order" bind:value={sortOrder}>
+					<option value="desc">Descending</option>
+					<option value="asc">Ascending</option>
+				</select>
+			</div>
+
+			<div class="filter-group">
+				<label for="start-date">Start Date</label>
+				<input
+					id="start-date"
+					type="date"
+					bind:value={startDate}
+					placeholder="Start date"
+				/>
+			</div>
+
+			<div class="filter-group">
+				<label for="end-date">End Date</label>
+				<input
+					id="end-date"
+					type="date"
+					bind:value={endDate}
+					placeholder="End date"
+				/>
+			</div>
+
+			<div class="date-presets">
+				<span class="presets-label">Quick Filters:</span>
+				<div class="preset-buttons">
+					<button type="button" class="preset-btn" on:click={() => setDateRange('today')}>Today</button>
+					<button type="button" class="preset-btn" on:click={() => setDateRange('week')}>This Week</button>
+					<button type="button" class="preset-btn" on:click={() => setDateRange('month')}>This Month</button>
+					<button type="button" class="preset-btn" on:click={() => setDateRange('year')}>This Year</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Transactions Table -->
+		<div class="transactions-table">
+			<div class="table-header">
+				<div class="col-date">Date</div>
+				<div class="col-description">Description</div>
+				<div class="col-type">Type</div>
+				<div class="col-amount">Amount</div>
+				<div class="col-actions">Actions</div>
+			</div>
+
+			<div class="table-body">
+				{#each filteredTransactions as transaction (transaction.id)}
+					<div class="table-row" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
+						<div class="col-date">{formatDate(transaction.date)}</div>
+						<div class="col-description">{transaction.description}</div>
+						<div class="col-type">
+							<span class="type-badge" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
+								{transaction.type}
+							</span>
+						</div>
+						<div class="col-amount" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
+							{transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+						</div>
+						<div class="col-actions">
+							<button 
+								class="delete-btn" 
+								on:click={() => deleteTransaction(transaction.id!)}
+								disabled={$loading}
+							>
+								🗑️
+							</button>
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			{#if filteredTransactions.length === 0 && !$loading}
+				<div class="no-results">
+					<p>No transactions found matching your filters.</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -560,7 +661,7 @@
 				<div class="modal-body">
 					<p class="modal-description">
 						Set a manual opening balance for <strong>{monthlyBalanceData.month}</strong>. 
-						This will override the calculated balance.
+						This will override the automatic calculation that uses the previous month's closing balance.
 					</p>
 					
 					<div class="form-group">
@@ -585,14 +686,18 @@
 					</div>
 					
 					<div class="current-info">
-						<p><strong>Current Calculated Balance:</strong> 
-							{formatCurrency(monthlyBalanceData.isManualOpeningBalance ? 0 : monthlyBalanceData.openingBalance)}
+						<p><strong>Current Opening Balance:</strong> 
+							{formatCurrency(monthlyBalanceData.openingBalance)}
 						</p>
-						{#if editingOpeningBalance}
-							<p><strong>Current Manual Balance:</strong> 
-								{formatCurrency(monthlyBalanceData.openingBalance)}
-							</p>
+						{#if monthlyBalanceData.isManualOpeningBalance}
+							<p><small>This is currently a manual entry.</small></p>
+						{:else}
+							<p><small>This is currently calculated from the previous month's closing balance.</small></p>
 						{/if}
+						<p><strong>This Month's Closing Balance:</strong> 
+							{formatCurrency(monthlyBalanceData.closingBalance)}
+						</p>
+						<p><small>The closing balance will become next month's opening balance.</small></p>
 					</div>
 				</div>
 				
@@ -612,139 +717,14 @@
 			</div>
 		</div>
 	{/if}
-
-	<!-- Filters and Search -->
-	<div class="filters">
-		<div class="search-group">
-			<label for="search">Search</label>
-			<input
-				id="search"
-				type="text"
-				bind:value={searchTerm}
-				placeholder="Search transactions..."
-			/>
-		</div>
-
-		<div class="filter-group">
-			<label for="type-filter">Type</label>
-			<select id="type-filter" bind:value={filterType}>
-				<option value="all">All Types</option>
-				<option value="income">Income</option>
-				<option value="expense">Expense</option>
-			</select>
-		</div>
-
-		<div class="filter-group">
-			<label for="category-filter">Category</label>
-			<select id="category-filter" bind:value={filterCategory}>
-				<option value="">All Categories</option>
-				{#each categories as category}
-					<option value={category}>{category}</option>
-				{/each}
-			</select>
-		</div>
-
-		<div class="filter-group">
-			<label for="sort-by">Sort By</label>
-			<select id="sort-by" bind:value={sortBy}>
-				<option value="date">Date</option>
-				<option value="amount">Amount</option>
-				<option value="description">Description</option>
-			</select>
-		</div>
-
-		<div class="filter-group">
-			<label for="sort-order">Order</label>
-			<select id="sort-order" bind:value={sortOrder}>
-				<option value="desc">Descending</option>
-				<option value="asc">Ascending</option>
-			</select>
-		</div>
-
-		<div class="filter-group">
-			<label for="start-date">Start Date</label>
-			<input
-				id="start-date"
-				type="date"
-				bind:value={startDate}
-				placeholder="Start date"
-			/>
-		</div>
-
-		<div class="filter-group">
-			<label for="end-date">End Date</label>
-			<input
-				id="end-date"
-				type="date"
-				bind:value={endDate}
-				placeholder="End date"
-			/>
-		</div>
-
-		<div class="date-presets">
-			<span class="presets-label">Quick Filters:</span>
-			<div class="preset-buttons">
-				<button type="button" class="preset-btn" on:click={() => setDateRange('today')}>Today</button>
-				<button type="button" class="preset-btn" on:click={() => setDateRange('week')}>This Week</button>
-				<button type="button" class="preset-btn" on:click={() => setDateRange('month')}>This Month</button>
-				<button type="button" class="preset-btn" on:click={() => setDateRange('year')}>This Year</button>
-			</div>
-		</div>
-	</div>
-
-	<!-- Transactions Table -->
-	<div class="transactions-table">
-		<div class="table-header">
-			<div class="col-date">Date</div>
-			<div class="col-description">Description</div>
-			<div class="col-category">Category</div>
-			<div class="col-type">Type</div>
-			<div class="col-amount">Amount</div>
-			<div class="col-actions">Actions</div>
-		</div>
-
-		<div class="table-body">
-			{#each filteredTransactions as transaction (transaction.id)}
-				<div class="table-row" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
-					<div class="col-date">{formatDate(transaction.date)}</div>
-					<div class="col-description">{transaction.description}</div>
-					<div class="col-category">
-						<span class="category-tag">{transaction.category}</span>
-					</div>
-					<div class="col-type">
-						<span class="type-badge" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
-							{transaction.type}
-						</span>
-					</div>
-					<div class="col-amount" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
-						{transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-					</div>
-					<div class="col-actions">
-						<button 
-							class="delete-btn" 
-							on:click={() => deleteTransaction(transaction.id!)}
-							disabled={$loading}
-						>
-							🗑️
-						</button>
-					</div>
-				</div>
-			{/each}
-		</div>
-
-		{#if filteredTransactions.length === 0 && !$loading}
-			<div class="no-results">
-				<p>No transactions found matching your filters.</p>
-				<a href="/" class="back-home-btn">← Back to Dashboard</a>
-			</div>
-		{/if}
-	</div>
 </div>
 
 <style>
 	.transactions-page {
 		max-width: 1200px;
 		margin: 0 auto;
+		padding: 2rem;
+		font-family: 'Poppins', sans-serif;
 	}
 
 	/* Error and Loading States */
@@ -792,9 +772,13 @@
 
 	.page-header {
 		display: flex;
-		justify-content: space-between;
+		justify-content: center;
 		align-items: center;
 		margin-bottom: 2rem;
+		padding: 1.5rem 2rem;
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 	}
 
 	.page-header h1 {
@@ -802,143 +786,6 @@
 		color: #1e293b;
 		font-size: 2rem;
 		font-weight: 700;
-	}
-
-	.header-buttons {
-		display: flex;
-		gap: 1rem;
-		align-items: center;
-	}
-
-	.export-btn {
-		background: #10b981;
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border: none;
-		border-radius: 8px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.export-btn:hover {
-		background: #059669;
-	}
-
-	.clear-filters-btn {
-		background: #6b7280;
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border: none;
-		border-radius: 8px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.clear-filters-btn:hover {
-		background: #4b5563;
-	}
-
-	/* Summary Stats */
-	.summary-stats {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.stat-card {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		text-align: center;
-	}
-
-	.stat-card h3 {
-		margin: 0 0 0.5rem 0;
-		color: #64748b;
-		font-size: 0.875rem;
-		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.stat-card .amount {
-		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #1e293b;
-	}
-
-	.stat-card .amount.income {
-		color: #10b981;
-	}
-
-	.stat-card .amount.expense {
-		color: #ef4444;
-	}
-
-	.stat-card .count {
-		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #2563eb;
-	}
-
-	.date-range-info {
-		margin: 0.5rem 0 0 0;
-		font-size: 0.75rem;
-		color: #6b7280;
-		font-weight: 500;
-	}
-
-	/* Detailed Breakdown */
-	.detailed-breakdown {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.breakdown-card {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	}
-
-	.breakdown-card h3 {
-		margin: 0 0 1rem 0;
-		color: #1e293b;
-		font-size: 1rem;
-		font-weight: 600;
-		text-align: center;
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid #e2e8f0;
-	}
-
-	.breakdown-stats {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.breakdown-stats .stat-item {
-		padding: 0.25rem 0;
-		font-size: 0.875rem;
-		color: #64748b;
-	}
-
-	.breakdown-stats .stat-item.total {
-		border-top: 1px solid #e2e8f0;
-		padding-top: 0.5rem;
-		margin-top: 0.5rem;
-		font-weight: 600;
-		color: #1e293b;
 	}
 
 	/* Monthly Balance Section */
@@ -1192,6 +1039,276 @@
 		color: #ef4444;
 	}
 
+	/* Transactions List Section */
+	.transactions-list-section {
+		margin-top: 3rem;
+	}
+
+	.transactions-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.transactions-header h2 {
+		margin: 0;
+		color: #1e293b;
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	.header-actions {
+		display: flex;
+		gap: 1rem;
+		align-items: center;
+	}
+
+	.clear-filters-btn {
+		background: #6b7280;
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.clear-filters-btn:hover {
+		background: #4b5563;
+	}
+
+	/* Filters */
+	.filters {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1.5rem;
+		background: white;
+		padding: 2rem;
+		border-radius: 16px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		margin-bottom: 2rem;
+		backdrop-filter: blur(10px);
+		border: 1px solid rgba(99, 102, 241, 0.1);
+	}
+
+	.search-group,
+	.filter-group {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.search-group label,
+	.filter-group label {
+		margin-bottom: 0.5rem;
+		color: #374151;
+		font-weight: 600;
+		font-size: 0.875rem;
+	}
+
+	.search-group input,
+	.filter-group select {
+		padding: 0.75rem 1rem;
+		border: 2px solid #e5e7eb;
+		border-radius: 12px;
+		font-size: 0.875rem;
+		transition: all 0.2s ease;
+		background: white;
+	}
+
+	.search-group input:focus,
+	.filter-group select:focus {
+		outline: none;
+		border-color: #6366f1;
+		box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+	}
+
+	.filter-group input[type="date"] {
+		padding: 0.75rem 1rem;
+		border: 2px solid #e5e7eb;
+		border-radius: 12px;
+		font-size: 0.875rem;
+		transition: all 0.2s ease;
+		background: white;
+	}
+
+	.filter-group input[type="date"]:focus {
+		outline: none;
+		border-color: #6366f1;
+		box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+	}
+
+	.date-presets {
+		grid-column: 1 / -1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.date-presets .presets-label {
+		color: #374151;
+		font-weight: 500;
+		font-size: 0.875rem;
+	}
+
+	.preset-buttons {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.preset-btn {
+		background: #f3f4f6;
+		color: #374151;
+		border: 1px solid #d1d5db;
+		border-radius: 12px;
+		padding: 0.75rem 1.5rem;
+		font-size: 0.875rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.preset-btn:hover {
+		background: #e5e7eb;
+		border-color: #9ca3af;
+		transform: translateY(-1px);
+	}
+
+	.preset-btn:active {
+		background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+		color: white;
+		border-color: #6366f1;
+		transform: translateY(0);
+	}
+
+	/* Transactions Table */
+	.transactions-table {
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		overflow: hidden;
+		border: 1px solid rgba(99, 102, 241, 0.1);
+	}
+
+	.table-header {
+		display: grid;
+		grid-template-columns: 1fr 2fr 1fr 1fr 1fr auto;
+		gap: 1.5rem;
+		padding: 1.5rem 2rem;
+		background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+		border-bottom: 1px solid #e2e8f0;
+		font-weight: 700;
+		color: #374151;
+		font-size: 0.875rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.table-body {
+		max-height: 600px;
+		overflow-y: auto;
+	}
+
+	.table-row {
+		display: grid;
+		grid-template-columns: 1fr 2fr 1fr 1fr 1fr auto;
+		gap: 1.5rem;
+		padding: 1.5rem 2rem;
+		border-bottom: 1px solid #f1f5f9;
+		transition: all 0.2s ease;
+		align-items: center;
+	}
+
+	.table-row:hover {
+		background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+		transform: translateX(4px);
+		box-shadow: inset 4px 0 0 #6366f1;
+	}
+
+	.table-row.income {
+		border-left: 4px solid #10b981;
+		background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
+	}
+
+	.table-row.expense {
+		border-left: 4px solid #ef4444;
+		background: linear-gradient(90deg, rgba(239, 68, 68, 0.05) 0%, transparent 100%);
+	}
+
+	.col-description {
+		font-weight: 600;
+		color: #1e293b;
+	}
+
+	.category-tag {
+		background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+		color: #64748b;
+		padding: 0.5rem 1rem;
+		border-radius: 12px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		border: 1px solid rgba(100, 116, 139, 0.2);
+	}
+
+	.type-badge {
+		padding: 0.25rem 0.75rem;
+		border-radius: 20px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		text-transform: capitalize;
+	}
+
+	.type-badge.income {
+		background: rgba(16, 185, 129, 0.1);
+		color: #10b981;
+	}
+
+	.type-badge.expense {
+		background: rgba(239, 68, 68, 0.1);
+		color: #ef4444;
+	}
+
+	.col-amount {
+		font-weight: 600;
+		text-align: right;
+	}
+
+	.col-amount.income {
+		color: #10b981;
+	}
+
+	.col-amount.expense {
+		color: #ef4444;
+	}
+
+	.delete-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 4px;
+		transition: background-color 0.2s;
+		font-size: 1rem;
+	}
+
+	.delete-btn:hover:not(:disabled) {
+		background: #fee2e2;
+	}
+
+	.delete-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.no-results {
+		text-align: center;
+		padding: 3rem 1rem;
+		color: #64748b;
+	}
+
 	/* Modal Styles */
 	.modal-overlay {
 		position: fixed;
@@ -1363,234 +1480,6 @@
 		background: #dc2626;
 	}
 
-	/* Filters */
-	.filters {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 1rem;
-		background: white;
-		padding: 1.5rem;
-		border-radius: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		margin-bottom: 2rem;
-	}
-
-	.search-group,
-	.filter-group {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.search-group label,
-	.filter-group label {
-		margin-bottom: 0.5rem;
-		color: #374151;
-		font-weight: 500;
-		font-size: 0.875rem;
-	}
-
-	.search-group input,
-	.filter-group select {
-		padding: 0.75rem;
-		border: 1px solid #d1d5db;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: border-color 0.2s, box-shadow 0.2s;
-	}
-
-	.search-group input:focus,
-	.filter-group select:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	}
-
-	.filter-group input[type="date"] {
-		padding: 0.75rem;
-		border: 1px solid #d1d5db;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: border-color 0.2s, box-shadow 0.2s;
-	}
-
-	.filter-group input[type="date"]:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	}
-
-	.date-presets {
-		grid-column: 1 / -1;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.date-presets .presets-label {
-		color: #374151;
-		font-weight: 500;
-		font-size: 0.875rem;
-	}
-
-	.preset-buttons {
-		display: flex;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-
-	.preset-btn {
-		background: #f3f4f6;
-		color: #374151;
-		border: 1px solid #d1d5db;
-		border-radius: 6px;
-		padding: 0.5rem 1rem;
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.preset-btn:hover {
-		background: #e5e7eb;
-		border-color: #9ca3af;
-	}
-
-	.preset-btn:active {
-		background: #2563eb;
-		color: white;
-		border-color: #2563eb;
-	}
-
-	/* Transactions Table */
-	.transactions-table {
-		background: white;
-		border-radius: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		overflow: hidden;
-	}
-
-	.table-header {
-		display: grid;
-		grid-template-columns: 1fr 2fr 1fr 1fr 1fr auto;
-		gap: 1rem;
-		padding: 1rem 1.5rem;
-		background: #f8fafc;
-		border-bottom: 1px solid #e2e8f0;
-		font-weight: 600;
-		color: #374151;
-		font-size: 0.875rem;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.table-body {
-		max-height: 600px;
-		overflow-y: auto;
-	}
-
-	.table-row {
-		display: grid;
-		grid-template-columns: 1fr 2fr 1fr 1fr 1fr auto;
-		gap: 1rem;
-		padding: 1rem 1.5rem;
-		border-bottom: 1px solid #f1f5f9;
-		transition: background-color 0.2s;
-		align-items: center;
-	}
-
-	.table-row:hover {
-		background: #f9fafb;
-	}
-
-	.table-row.income {
-		border-left: 4px solid #10b981;
-	}
-
-	.table-row.expense {
-		border-left: 4px solid #ef4444;
-	}
-
-	.col-description {
-		font-weight: 500;
-		color: #1e293b;
-	}
-
-	.category-tag {
-		background: #f1f5f9;
-		color: #64748b;
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-		font-size: 0.75rem;
-		font-weight: 500;
-	}
-
-	.type-badge {
-		padding: 0.25rem 0.75rem;
-		border-radius: 20px;
-		font-size: 0.75rem;
-		font-weight: 500;
-		text-transform: capitalize;
-	}
-
-	.type-badge.income {
-		background: rgba(16, 185, 129, 0.1);
-		color: #10b981;
-	}
-
-	.type-badge.expense {
-		background: rgba(239, 68, 68, 0.1);
-		color: #ef4444;
-	}
-
-	.col-amount {
-		font-weight: 600;
-		text-align: right;
-	}
-
-	.col-amount.income {
-		color: #10b981;
-	}
-
-	.col-amount.expense {
-		color: #ef4444;
-	}
-
-	.delete-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 0.5rem;
-		border-radius: 4px;
-		transition: background-color 0.2s;
-		font-size: 1rem;
-	}
-
-	.delete-btn:hover:not(:disabled) {
-		background: #fee2e2;
-	}
-
-	.delete-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.no-results {
-		text-align: center;
-		padding: 3rem 1rem;
-		color: #64748b;
-	}
-
-	.back-home-btn {
-		color: #2563eb;
-		text-decoration: none;
-		font-weight: 500;
-		margin-top: 1rem;
-		display: inline-block;
-	}
-
-	.back-home-btn:hover {
-		text-decoration: underline;
-	}
-
 	/* Responsive Design */
 	@media (max-width: 1024px) {
 		.table-header,
@@ -1611,11 +1500,13 @@
 			align-items: stretch;
 		}
 
-		.summary-stats {
-			grid-template-columns: repeat(2, 1fr);
+		.monthly-balance-header {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: stretch;
 		}
 
-		.monthly-balance-header {
+		.transactions-header {
 			flex-direction: column;
 			gap: 1rem;
 			align-items: stretch;
@@ -1682,11 +1573,5 @@
 		.col-description::before { content: "Description: "; font-weight: 600; }
 		.col-category::before { content: "Category: "; font-weight: 600; }
 		.col-amount::before { content: "Amount: "; font-weight: 600; }
-	}
-
-	@media (max-width: 480px) {
-		.summary-stats {
-			grid-template-columns: 1fr;
-		}
 	}
 </style>
