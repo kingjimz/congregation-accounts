@@ -15,8 +15,20 @@
 		type: 'income' as 'income' | 'expense'
 	};
 
-	// Date selector for monthly view
-	let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+	// Date selector for monthly view - intelligently set to most recent month with data
+	let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format (fallback)
+
+	// Update selectedMonth to the most recent month with data when stores are loaded
+	$: if ($transactions.length > 0 || $openingBalances.length > 0) {
+		const allMonths = [...new Set([
+			...$transactions.map(t => t.date.slice(0, 7)),
+			...$openingBalances.map(ob => ob.month)
+		])].sort().reverse();
+		
+		if (allMonths.length > 0 && !allMonths.includes(selectedMonth)) {
+			selectedMonth = allMonths[0]; // Set to most recent month with data
+		}
+	}
 
 	// Opening balance management
 	let showOpeningBalanceForm = false;
@@ -76,15 +88,19 @@
 	// Calculate end of month balance: Opening Balance + Income - Expenses
 	$: monthlyBalance = openingBalanceAmount + monthlyIncome - monthlyExpenses;
 
-	// Get all available months from transactions for the dropdown
-	$: availableMonths = [...new Set($transactions.map(t => t.date.slice(0, 7)))]
+	// Get all available months from transactions and opening balances for the dropdown
+	$: availableMonths = [...new Set([
+		...$transactions.map(t => t.date.slice(0, 7)),
+		...$openingBalances.map(ob => ob.month),
+		selectedMonth // Always include the currently selected month
+	])]
 		.sort()
 		.reverse(); // Most recent first
 
 	// Recent transactions for the selected month
 	$: recentMonthlyTransactions = monthlyTransactions
 		.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-		.slice(0, 10);
+		.slice(0, 5);
 
 	// Check if we need to suggest setting up opening balance for next month
 	$: nextMonth = getNextMonth(selectedMonth);
@@ -101,7 +117,7 @@
 		submitting = true;
 		try {
 			const transactionData = {
-				date: new Date().toISOString().split('T')[0],
+				date: getTodayLocalDate(),
 				description: newTransaction.description,
 				category: newTransaction.category,
 				amount: newTransaction.amount,
@@ -175,9 +191,29 @@
 		return date.toISOString().slice(0, 7);
 	}
 
+	function formatCategoryName(category: string): string {
+		// Create shortcuts for long category names
+		const categoryShortcuts = {
+			'Local Congregation Donations': 'Local Donations',
+			'Worldwide Work Donations': 'Worldwide Donations',
+			'Local Congregation Expenses': 'Local Expenses',
+			'Worldwide Work Expenses': 'Worldwide Expenses'
+		};
+		
+		return categoryShortcuts[category] || category;
+	}
+
+	function getTodayLocalDate(): string {
+		const today = new Date();
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, '0');
+		const day = String(today.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
 	async function setOpeningBalance() {
 		if (newOpeningBalance < 0) {
-			alert('Opening balance cannot be negative');
+			alert('Starting balance cannot be negative');
 			return;
 		}
 
@@ -193,10 +229,10 @@
 			openingBalanceNote = '';
 			showOpeningBalanceForm = false;
 			
-			console.log('Opening balance set successfully');
+			console.log('Starting balance set successfully');
 		} catch (err) {
-			console.error('Failed to set opening balance:', err);
-			alert('Failed to set opening balance. Please try again.');
+			console.error('Failed to set starting balance:', err);
+			alert('Failed to set starting balance. Please try again.');
 		}
 	}
 
@@ -222,7 +258,7 @@
 MONTHLY REPORT - ${monthName}
 
 === MONTHLY BALANCE CALCULATION ===
-Opening Balance: ${formatCurrency(openingBalanceAmount)}
+Starting Balance: ${formatCurrency(openingBalanceAmount)}
 Total Income: ${formatCurrency(monthlyIncome)}
 Total Expenses: ${formatCurrency(monthlyExpenses)}
 End of Month Balance: ${formatCurrency(monthlyBalance)}
@@ -284,20 +320,25 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 				</select>
 			</div>
 			<div>
-				<h2 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-					📅 {formatMonthYear(selectedMonth)} Report
+				<h2 class="text-xl font-bold flex items-center">
+					<svg class="w-8 h-8 mr-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+					</svg>
+					<span class="bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-transparent">
+						{formatMonthYear(selectedMonth)} Report
+					</span>
 				</h2>
 			</div>
 		</div>
 	</section>
 
-	<!-- Opening Balance Section -->
+	<!-- Starting Balance Section -->
 	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 			<div class="flex-1">
 				<h3 class="text-xl font-bold text-gray-900 mb-3 flex items-center">
 					<span class="text-3xl mr-3">💰</span>
-					Opening Balance
+					Starting Balance
 				</h3>
 				<p class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent mb-2">
 					{formatCurrency(openingBalanceAmount)}
@@ -314,14 +355,14 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 					class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
 					on:click={() => showOpeningBalanceForm = true}
 				>
-					Set Opening Balance
+					Set Starting Balance
 				</button>
 			{:else}
 				<button 
 					class="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
 					on:click={() => showOpeningBalanceForm = true}
 				>
-					Update Opening Balance
+					Update Starting Balance
 				</button>
 			{/if}
 		</div>
@@ -344,12 +385,12 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 		{#if showOpeningBalanceForm}
 			<div class="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-6 mt-4 shadow-inner">
 				<h4 class="text-lg font-semibold text-gray-900 mb-4">
-					{currentOpeningBalance ? 'Update' : 'Set'} Opening Balance for {formatMonthYear(selectedMonth)}
+					{currentOpeningBalance ? 'Update' : 'Set'} Starting Balance for {formatMonthYear(selectedMonth)}
 				</h4>
 				<form on:submit|preventDefault={setOpeningBalance} class="space-y-4">
 					<div>
 						<label for="opening-balance" class="block text-sm font-medium text-gray-700 mb-2">
-							Opening Balance Amount
+							Start of month balance
 						</label>
 						<input
 							id="opening-balance"
@@ -379,7 +420,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 							type="submit" 
 							class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
 						>
-							Save Opening Balance
+							Save Balance
 						</button>
 						<button 
 							type="button" 
@@ -400,7 +441,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 			<div class="flex items-center">
 				<div class="text-4xl mr-4">🏦</div>
 				<div class="flex-1">
-					<h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Opening Balance</h3>
+					<h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Starting Balance</h3>
 					<p class="text-2xl font-bold text-gray-900">{formatCurrency(openingBalanceAmount)}</p>
 				</div>
 			</div>
@@ -430,7 +471,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 			<div class="flex items-center">
 				<div class="text-4xl mr-4">{monthlyBalance >= 0 ? '📈' : '📉'}</div>
 				<div class="flex-1">
-					<h3 class="text-sm font-semibold {monthlyBalance >= 0 ? 'text-indigo-100' : 'text-orange-100'} uppercase tracking-wide mb-1">End of Month Balance</h3>
+					<h3 class="text-sm font-semibold {monthlyBalance >= 0 ? 'text-indigo-100' : 'text-orange-100'} uppercase tracking-wide mb-1">Month End Balance</h3>
 					<p class="text-2xl font-bold">{formatCurrency(monthlyBalance)}</p>
 				</div>
 			</div>
@@ -541,7 +582,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 						<div class="font-semibold text-gray-900 mb-1">{transaction.description}</div>
 						<div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
 							<span class="bg-gradient-to-r from-gray-100 to-gray-200 px-3 py-1 rounded-full font-medium">
-								{transaction.category}
+								{formatCategoryName(transaction.category)}
 							</span>
 							<span class="flex items-center">
 								<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -578,7 +619,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 			{/if}
 		</div>
 
-		{#if monthlyTransactions.length > 10}
+		{#if monthlyTransactions.length > 5}
 			<div class="text-center mt-6 pt-6 border-t border-gray-200">
 				<a 
 					href="/transactions" 

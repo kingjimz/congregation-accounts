@@ -18,14 +18,45 @@
 	let startDate = '';
 	let endDate = '';
 	
-	// Monthly balance state
-	let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+	// Pagination state
+	let currentPage = 1;
+	let itemsPerPage = 10;
+	
+	// Monthly balance state - intelligently set to most recent month with data
+	let selectedMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format (fallback)
+	let hasInitializedMonth = false;
+	
+	// Update selectedMonth to the most recent month with data when stores are loaded (only once)
+	$: if (($transactions.length > 0 || $openingBalances.length > 0) && !hasInitializedMonth) {
+		const allMonths = [...new Set([
+			...$transactions.map(t => t.date.slice(0, 7)),
+			...$openingBalances.map(ob => ob.month)
+		])].sort().reverse();
+		
+		if (allMonths.length > 0) {
+			selectedMonth = allMonths[0]; // Set to most recent month with data
+			hasInitializedMonth = true;
+		}
+	}
 	
 	// Opening balance manual entry state
 	let showOpeningBalanceModal = false;
 	let manualOpeningBalance = 0;
 	let openingBalanceNote = '';
 	let editingOpeningBalance = false;
+
+	// Categories organized by type and purpose (same as homepage)
+	const incomeCategories = [
+		'Worldwide Work Donations',
+		'Local Congregation Donations',
+		'Other Income'
+	];
+
+	const expenseCategories = [
+		'Worldwide Work Expenses',
+		'Local Congregation Expenses', 
+		'Other Expenses'
+	];
 
 	// Update transaction modal state
 	let showUpdateTransactionModal = false;
@@ -47,6 +78,29 @@
 	// Get unique categories
 	$: categories = [...new Set($transactions.map(t => t.category))].sort();
 
+	// Get categories based on selected filter type
+	$: availableCategories = filterType === 'income' ? incomeCategories : 
+							 filterType === 'expense' ? expenseCategories : 
+							 [...incomeCategories, ...expenseCategories];
+
+	// Reset category filter when type changes
+	$: if (filterType) {
+		if (filterType === 'income' && !incomeCategories.includes(filterCategory)) {
+			filterCategory = '';
+		} else if (filterType === 'expense' && !expenseCategories.includes(filterCategory)) {
+			filterCategory = '';
+		}
+	}
+
+	// Reset category in update form when type changes
+	$: if (updateForm.type) {
+		if (updateForm.type === 'income' && !incomeCategories.includes(updateForm.category)) {
+			updateForm.category = '';
+		} else if (updateForm.type === 'expense' && !expenseCategories.includes(updateForm.category)) {
+			updateForm.category = '';
+		}
+	}
+
 	// Filtered and sorted transactions
 	$: filteredTransactions = $transactions
 		.filter(t => {
@@ -55,12 +109,22 @@
 			const matchesType = filterType === 'all' || t.type === filterType;
 			const matchesCategory = !filterCategory || t.category === filterCategory;
 			
-			// Date filtering
+			// Date filtering - prioritize month selector if no specific date range is set
 			const transactionDate = new Date(t.date);
-			const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
-			const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
+			let matchesDateFilter = true;
 			
-			return matchesSearch && matchesType && matchesCategory && matchesStartDate && matchesEndDate;
+			if (startDate || endDate) {
+				// If specific date range is set, use that
+				const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
+				const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
+				matchesDateFilter = matchesStartDate && matchesEndDate;
+			} else {
+				// If no specific date range, filter by selected month
+				const transactionMonth = t.date.slice(0, 7); // YYYY-MM format
+				matchesDateFilter = transactionMonth === selectedMonth;
+			}
+			
+			return matchesSearch && matchesType && matchesCategory && matchesDateFilter;
 		})
 		.sort((a, b) => {
 			let aValue: string | number;
@@ -89,6 +153,18 @@
 				return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
 			}
 		});
+
+	// Pagination calculations
+	$: totalItems = filteredTransactions.length;
+	$: totalPages = Math.ceil(totalItems / itemsPerPage);
+	$: startIndex = (currentPage - 1) * itemsPerPage;
+	$: endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+	$: paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+	
+	// Reset to first page when filters change
+	$: if (searchTerm || filterType || filterCategory || startDate || endDate || selectedMonth) {
+		currentPage = 1;
+	}
 
 	// Helper function to get next month string
 	function getNextMonth(monthString: string): string {
@@ -216,6 +292,9 @@
 			return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
 		});
 		
+		// Check if this month has any activity (transactions or manual opening balance)
+		const hasActivity = transactionsInMonth.length > 0 || manualOpeningBalanceRecord;
+		
 		// Calculate or use manual opening balance
 		let openingBalance: number;
 		let isManualOpeningBalance = false;
@@ -223,9 +302,12 @@
 		if (manualOpeningBalanceRecord) {
 			openingBalance = manualOpeningBalanceRecord.balance;
 			isManualOpeningBalance = true;
-		} else {
-			// Use the proper opening balance calculation
+		} else if (hasActivity || $transactions.length > 0) {
+			// Only calculate opening balance if there's activity or if there are transactions in the system
 			openingBalance = calculateOpeningBalanceForMonth(selectedMonth);
+		} else {
+			// No activity and no transactions in system
+			openingBalance = 0;
 		}
 		
 		// Calculate month activity
@@ -263,6 +345,7 @@
 			monthExpenses,
 			closingBalance,
 			transactionCount: transactionsInMonth.length,
+			hasActivity,
 			worldwideWork: {
 				income: monthWorldwideIncome,
 				expenses: monthWorldwideExpenses,
@@ -293,6 +376,9 @@
 
 	function setMonthFilter(monthValue: string) {
 		selectedMonth = monthValue;
+		// Clear date range filters when month changes to ensure month filter takes priority
+		startDate = '';
+		endDate = '';
 	}
 
 	async function deleteTransaction(id: string) {
@@ -360,6 +446,31 @@
 		filterCategory = '';
 		startDate = '';
 		endDate = '';
+		currentPage = 1;
+	}
+
+	// Pagination functions
+	function goToPage(page: number) {
+		if (page >= 1 && page <= totalPages) {
+			currentPage = page;
+		}
+	}
+
+	function nextPage() {
+		if (currentPage < totalPages) {
+			currentPage++;
+		}
+	}
+
+	function prevPage() {
+		if (currentPage > 1) {
+			currentPage--;
+		}
+	}
+
+	function changeItemsPerPage(newItemsPerPage: number) {
+		itemsPerPage = newItemsPerPage;
+		currentPage = 1;
 	}
 
 	function setDateRange(range: 'today' | 'week' | 'month' | 'year') {
@@ -432,7 +543,7 @@
 	}
 
 	async function deleteOpeningBalance() {
-		if (confirm('Are you sure you want to delete the manual opening balance? This will revert to using the previous month\'s closing balance.')) {
+		if (confirm('Are you sure you want to delete the manual start of month balance? This will revert to using the previous month\'s closing balance.')) {
 			const success = await openingBalanceStore.deleteMonthOpeningBalance(selectedMonth);
 			if (success) {
 				closeOpeningBalanceModal();
@@ -479,90 +590,97 @@
 		<div class="monthly-balance-card">
 			<h3>📅 {monthlyBalanceData.month} Summary</h3>
 			
-			<div class="balance-flow">
-				<div class="balance-item opening">
-					<h4>Start of month balance</h4>
-					<p class="balance-amount" class:income={monthlyBalanceData.openingBalance >= 0} class:expense={monthlyBalanceData.openingBalance < 0}>
-						{formatCurrency(monthlyBalanceData.openingBalance)}
-					</p>
-					{#if monthlyBalanceData.isManualOpeningBalance}
-						<p class="balance-type-indicator manual">📝 Manual Entry</p>
-					{:else}
-						<p class="balance-type-indicator calculated">🧮 Previous Month's Closing</p>
-					{/if}
-					{#if monthlyBalanceData.openingBalanceNote}
-						<p class="balance-note">💬 {monthlyBalanceData.openingBalanceNote}</p>
-					{/if}
-					<button class="edit-balance-btn" on:click={openOpeningBalanceModal}>
-						{monthlyBalanceData.isManualOpeningBalance ? 'Edit' : 'Set Manual'} Balance
-					</button>
+			{#if !monthlyBalanceData.hasActivity}
+				<div class="no-data-message">
+					<p>📭 No transactions or manual balances found for this month.</p>
+					<p>Select a different month or add transactions to see data.</p>
 				</div>
-
-				<div class="balance-activity">
-					<div class="activity-item income">
-						<span class="activity-label">Monthly Income</span>
-						<span class="activity-amount">+{formatCurrency(monthlyBalanceData.monthIncome)}</span>
+			{:else}
+				<div class="balance-flow">
+					<div class="balance-item opening">
+						<h4>Start of month balance</h4>
+						<p class="balance-amount" class:income={monthlyBalanceData.openingBalance >= 0} class:expense={monthlyBalanceData.openingBalance < 0}>
+							{formatCurrency(monthlyBalanceData.openingBalance)}
+						</p>
+						{#if monthlyBalanceData.isManualOpeningBalance}
+							<p class="balance-type-indicator manual">📝 Manual Entry</p>
+						{:else}
+							<p class="balance-type-indicator calculated">🧮 Previous Month's Closing</p>
+						{/if}
+						{#if monthlyBalanceData.openingBalanceNote}
+							<p class="balance-note">💬 {monthlyBalanceData.openingBalanceNote}</p>
+						{/if}
+						<button class="edit-balance-btn" on:click={openOpeningBalanceModal}>
+							{monthlyBalanceData.isManualOpeningBalance ? 'Edit' : 'Set Manual'} Balance
+						</button>
 					</div>
-					<div class="activity-item expense">
-						<span class="activity-label">Monthly Expenses</span>
-						<span class="activity-amount">-{formatCurrency(monthlyBalanceData.monthExpenses)}</span>
+
+					<div class="balance-activity">
+						<div class="activity-item income">
+							<span class="activity-label">Monthly Income</span>
+							<span class="activity-amount">+{formatCurrency(monthlyBalanceData.monthIncome)}</span>
+						</div>
+						<div class="activity-item expense">
+							<span class="activity-label">Monthly Expenses</span>
+							<span class="activity-amount">-{formatCurrency(monthlyBalanceData.monthExpenses)}</span>
+						</div>
 					</div>
-				</div>
 
-				<div class="balance-item closing">
-					<h4>End of month balance</h4>
-					<p class="balance-amount" class:income={monthlyBalanceData.closingBalance >= 0} class:expense={monthlyBalanceData.closingBalance < 0}>
-						{formatCurrency(monthlyBalanceData.closingBalance)}
-					</p>
-					<p class="balance-note">This becomes next month's opening balance</p>
-				</div>
-			</div>
-
-			<div class="monthly-breakdown">
-				<div class="monthly-category">
-					<h4>🌍 Worldwide Work</h4>
-					<div class="category-stats">
-						<div class="stat-row">
-							<span>Income:</span>
-							<span class="amount income">+{formatCurrency(monthlyBalanceData.worldwideWork.income)}</span>
-						</div>
-						<div class="stat-row">
-							<span>Expenses:</span>
-							<span class="amount expense">-{formatCurrency(monthlyBalanceData.worldwideWork.expenses)}</span>
-						</div>
-						<div class="stat-row total">
-							<span>Net:</span>
-							<span class="amount" class:income={monthlyBalanceData.worldwideWork.balance >= 0} class:expense={monthlyBalanceData.worldwideWork.balance < 0}>
-								{formatCurrency(monthlyBalanceData.worldwideWork.balance)}
-							</span>
-						</div>
+					<div class="balance-item closing">
+						<h4>End of month balance</h4>
+						<p class="balance-amount" class:income={monthlyBalanceData.closingBalance >= 0} class:expense={monthlyBalanceData.closingBalance < 0}>
+							{formatCurrency(monthlyBalanceData.closingBalance)}
+						</p>
+						<p class="balance-note">This becomes next month's start of month balance</p>
 					</div>
 				</div>
 
-				<div class="monthly-category">
-					<h4>🏛️ Local Congregation</h4>
-					<div class="category-stats">
-						<div class="stat-row">
-							<span>Income:</span>
-							<span class="amount income">+{formatCurrency(monthlyBalanceData.localCongregation.income)}</span>
+				<div class="monthly-breakdown">
+					<div class="monthly-category">
+						<h4>🌍 Worldwide Work</h4>
+						<div class="category-stats">
+							<div class="stat-row">
+								<span>Income:</span>
+								<span class="amount income">+{formatCurrency(monthlyBalanceData.worldwideWork.income)}</span>
+							</div>
+							<div class="stat-row">
+								<span>Expenses:</span>
+								<span class="amount expense">-{formatCurrency(monthlyBalanceData.worldwideWork.expenses)}</span>
+							</div>
+							<div class="stat-row total">
+								<span>Net:</span>
+								<span class="amount" class:income={monthlyBalanceData.worldwideWork.balance >= 0} class:expense={monthlyBalanceData.worldwideWork.balance < 0}>
+									{formatCurrency(monthlyBalanceData.worldwideWork.balance)}
+								</span>
+							</div>
 						</div>
-						<div class="stat-row">
-							<span>Expenses:</span>
-							<span class="amount expense">-{formatCurrency(monthlyBalanceData.localCongregation.expenses)}</span>
-						</div>
-						<div class="stat-row total">
-							<span>Net:</span>
-							<span class="amount" class:income={monthlyBalanceData.localCongregation.balance >= 0} class:expense={monthlyBalanceData.localCongregation.balance < 0}>
-								{formatCurrency(monthlyBalanceData.localCongregation.balance)}
-							</span>
+					</div>
+
+					<div class="monthly-category">
+						<h4>🏛️ Local Congregation</h4>
+						<div class="category-stats">
+							<div class="stat-row">
+								<span>Income:</span>
+								<span class="amount income">+{formatCurrency(monthlyBalanceData.localCongregation.income)}</span>
+							</div>
+							<div class="stat-row">
+								<span>Expenses:</span>
+								<span class="amount expense">-{formatCurrency(monthlyBalanceData.localCongregation.expenses)}</span>
+							</div>
+							<div class="stat-row total">
+								<span>Net:</span>
+								<span class="amount" class:income={monthlyBalanceData.localCongregation.balance >= 0} class:expense={monthlyBalanceData.localCongregation.balance < 0}>
+									{formatCurrency(monthlyBalanceData.localCongregation.balance)}
+								</span>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
 
-			<div class="monthly-summary">
-				<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
-			</div>
+				<div class="monthly-summary">
+					<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -579,6 +697,17 @@
 
 		<!-- Filters -->
 		<div class="filters">
+			<div class="filter-info">
+				<p class="filter-note">
+					📅 <strong>Date Filtering:</strong> 
+					{#if startDate || endDate}
+						Using custom date range. Clear dates to filter by selected month above.
+					{:else}
+						Currently showing transactions for {monthlyBalanceData.month} only.
+					{/if}
+				</p>
+			</div>
+			
 			<div class="search-group">
 				<label for="search">Search</label>
 				<input
@@ -602,7 +731,7 @@
 				<label for="category-filter">Category</label>
 				<select id="category-filter" bind:value={filterCategory}>
 					<option value="">All Categories</option>
-					{#each categories as category}
+					{#each availableCategories as category}
 						<option value={category}>{category}</option>
 					{/each}
 				</select>
@@ -666,8 +795,28 @@
 				<div class="col-actions">Actions</div>
 			</div>
 
+			<!-- Pagination Controls Top -->
+			<div class="pagination-controls-top">
+				<div class="pagination-info">
+					<span>Showing {startIndex + 1}-{endIndex} of {totalItems} transactions</span>
+				</div>
+				<div class="items-per-page">
+					<label for="items-per-page">Items per page:</label>
+					<select 
+						id="items-per-page" 
+						bind:value={itemsPerPage} 
+						on:change={() => changeItemsPerPage(itemsPerPage)}
+					>
+						<option value={5}>5</option>
+						<option value={10}>10</option>
+						<option value={25}>25</option>
+						<option value={50}>50</option>
+					</select>
+				</div>
+			</div>
+
 			<div class="table-body">
-				{#each filteredTransactions as transaction (transaction.id)}
+				{#each paginatedTransactions as transaction (transaction.id)}
 					<div class="table-row" class:income={transaction.type === 'income'} class:expense={transaction.type === 'expense'}>
 						<div class="col-date">{formatDate(transaction.date)}</div>
 						<div class="col-description">{transaction.description}</div>
@@ -701,39 +850,79 @@
 				{/each}
 			</div>
 
-			{#if filteredTransactions.length === 0 && !$loading}
+			{#if paginatedTransactions.length === 0 && !$loading}
 				<div class="no-results">
 					<p>No transactions found matching your filters.</p>
+				</div>
+			{/if}
+
+			<!-- Pagination Controls Bottom -->
+			{#if totalPages > 1}
+				<div class="pagination-controls">
+					<button 
+						class="pagination-btn" 
+						on:click={prevPage} 
+						disabled={currentPage === 1}
+						title="Previous page"
+					>
+						‹ Previous
+					</button>
+					
+					<div class="pagination-numbers">
+						{#each Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+							let start = Math.max(1, currentPage - 2);
+							let end = Math.min(totalPages, start + 4);
+							start = Math.max(1, end - 4);
+							return start + i;
+						}).filter(page => page <= totalPages) as page}
+							<button 
+								class="pagination-number" 
+								class:active={page === currentPage}
+								on:click={() => goToPage(page)}
+							>
+								{page}
+							</button>
+						{/each}
+					</div>
+					
+					<button 
+						class="pagination-btn" 
+						on:click={nextPage} 
+						disabled={currentPage === totalPages}
+						title="Next page"
+					>
+						Next ›
+					</button>
 				</div>
 			{/if}
 		</div>
 	</div>
 
-	<!-- Opening Balance Modal -->
+	<!-- Start of Month Balance Modal -->
 	{#if showOpeningBalanceModal}
 		<div class="modal-overlay" on:click={closeOpeningBalanceModal}>
 			<div class="modal-content" on:click|stopPropagation>
 				<div class="modal-header">
 					<h3>
-						{editingOpeningBalance ? 'Edit' : 'Set'} Opening Balance
+						{editingOpeningBalance ? 'Edit' : 'Set'} Start of Month Balance
 					</h3>
 					<button class="modal-close" on:click={closeOpeningBalanceModal}>×</button>
 				</div>
 				
 				<div class="modal-body">
 					<p class="modal-description">
-						Set a manual opening balance for <strong>{monthlyBalanceData.month}</strong>. 
+						Set a manual start of month balance for <strong>{monthlyBalanceData.month}</strong>. 
 						This will override the automatic calculation that uses the previous month's closing balance.
 					</p>
 					
 					<div class="form-group">
-						<label for="manual-balance">Opening Balance:</label>
+						<label for="manual-balance">Start of Month Balance:</label>
 						<input 
 							id="manual-balance"
 							type="number" 
 							step="0.01" 
 							bind:value={manualOpeningBalance}
-							placeholder="Enter opening balance"
+							placeholder="Enter start of month balance"
 						/>
 					</div>
 					
@@ -748,7 +937,7 @@
 					</div>
 					
 					<div class="current-info">
-						<p><strong>Current Opening Balance:</strong> 
+						<p><strong>Current Start of Month Balance:</strong> 
 							{formatCurrency(monthlyBalanceData.openingBalance)}
 						</p>
 						{#if monthlyBalanceData.isManualOpeningBalance}
@@ -759,7 +948,7 @@
 						<p><strong>This Month's Closing Balance:</strong> 
 							{formatCurrency(monthlyBalanceData.closingBalance)}
 						</p>
-						<p><small>The closing balance will become next month's opening balance.</small></p>
+						<p><small>The closing balance will become next month's start of month balance.</small></p>
 					</div>
 				</div>
 				
@@ -819,11 +1008,11 @@
 								type="text" 
 								bind:value={updateForm.category}
 								placeholder="Transaction category"
-								list="category-list"
+								list="update-category-list"
 								required
 							/>
-							<datalist id="category-list">
-								{#each categories as category}
+							<datalist id="update-category-list">
+								{#each (updateForm.type === 'income' ? incomeCategories : expenseCategories) as category}
 									<option value={category}></option>
 								{/each}
 							</datalist>
@@ -1185,6 +1374,26 @@
 		color: #ef4444;
 	}
 
+	.no-data-message {
+		text-align: center;
+		padding: 3rem 2rem;
+		color: #64748b;
+		background: #f8fafc;
+		border-radius: 8px;
+		border: 2px dashed #cbd5e1;
+	}
+
+	.no-data-message p {
+		margin: 0.5rem 0;
+		font-size: 1rem;
+	}
+
+	.no-data-message p:first-child {
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #475569;
+	}
+
 	/* Transactions List Section */
 	.transactions-list-section {
 		margin-top: 3rem;
@@ -1238,6 +1447,22 @@
 		margin-bottom: 2rem;
 		backdrop-filter: blur(10px);
 		border: 1px solid rgba(99, 102, 241, 0.1);
+	}
+
+	.filter-info {
+		grid-column: 1 / -1;
+		padding: 1rem;
+		background: #f0f9ff;
+		border: 1px solid #bae6fd;
+		border-radius: 8px;
+		margin-bottom: 0.5rem;
+	}
+
+	.filter-note {
+		margin: 0;
+		color: #0369a1;
+		font-size: 0.875rem;
+		font-weight: 500;
 	}
 
 	.search-group,
@@ -1354,8 +1579,7 @@
 	}
 
 	.table-body {
-		max-height: 600px;
-		overflow-y: auto;
+		/* Removed max-height and overflow-y for pagination */
 	}
 
 	.table-row {
@@ -1465,6 +1689,109 @@
 		text-align: center;
 		padding: 3rem 1rem;
 		color: #64748b;
+	}
+
+	/* Pagination Styles */
+	.pagination-controls-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem 2rem;
+		background: #f8fafc;
+		border-bottom: 1px solid #e2e8f0;
+		font-size: 0.875rem;
+	}
+
+	.pagination-info {
+		color: #64748b;
+		font-weight: 500;
+	}
+
+	.items-per-page {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.items-per-page label {
+		color: #374151;
+		font-weight: 500;
+	}
+
+	.items-per-page select {
+		padding: 0.25rem 0.5rem;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		font-size: 0.875rem;
+		background: white;
+	}
+
+	.pagination-controls {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1.5rem 2rem;
+		background: #f8fafc;
+		border-top: 1px solid #e2e8f0;
+	}
+
+	.pagination-btn {
+		background: white;
+		color: #374151;
+		border: 1px solid #d1d5db;
+		border-radius: 6px;
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.pagination-btn:hover:not(:disabled) {
+		background: #f3f4f6;
+		border-color: #9ca3af;
+	}
+
+	.pagination-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+		background: #f9fafb;
+	}
+
+	.pagination-numbers {
+		display: flex;
+		gap: 0.25rem;
+	}
+
+	.pagination-number {
+		background: white;
+		color: #374151;
+		border: 1px solid #d1d5db;
+		border-radius: 6px;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		min-width: 40px;
+		text-align: center;
+	}
+
+	.pagination-number:hover {
+		background: #f3f4f6;
+		border-color: #9ca3af;
+	}
+
+	.pagination-number.active {
+		background: #2563eb;
+		color: white;
+		border-color: #2563eb;
+	}
+
+	.pagination-number.active:hover {
+		background: #1d4ed8;
+		border-color: #1d4ed8;
 	}
 
 	/* Modal Styles */
@@ -1735,6 +2062,22 @@
 		
 		.col-date {
 			display: none;
+		}
+
+		.pagination-controls-top {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: stretch;
+		}
+
+		.pagination-controls {
+			flex-direction: column;
+			gap: 1rem;
+		}
+
+		.pagination-numbers {
+			justify-content: center;
+			flex-wrap: wrap;
 		}
 	}
 </style>
