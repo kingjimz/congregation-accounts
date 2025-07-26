@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { user, loading, error } from '$lib/stores/auth';
+	import { theme } from '$lib/stores/theme';
 	import Auth from '$lib/components/Auth.svelte';
 	import SetupNotice from '$lib/components/SetupNotice.svelte';
 	import { onMount } from 'svelte';
@@ -29,6 +30,9 @@
 	});
 
 	onMount(() => {
+		// Initialize theme
+		theme.init();
+		
 		// Show setup instructions if there's an auth setup error
 		if ($error && $error.includes('operation-not-allowed')) {
 			import('$lib/firebase-setup-helper').then(({ getFirebaseSetupInstructions }) => {
@@ -114,7 +118,7 @@
 {:else if showingAuth}
 	<Auth on:authSuccess={handleAuthSuccess} />
 {:else}
-	<div class="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+	<div class="flex flex-col min-h-screen transition-colors duration-300" style="background: var(--color-bg-secondary);">
 		<!-- Header -->
 		<header class="bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -150,11 +154,13 @@
 		</main>
 
 		<!-- Bottom Navigation -->
-		<nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 shadow-lg transition-transform duration-300 ease-in-out {showBottomNav ? 'translate-y-0' : 'translate-y-full'}">
+		<nav class="fixed bottom-0 left-0 right-0 backdrop-blur-lg border-t shadow-lg transition-all duration-300 ease-in-out {showBottomNav ? 'translate-y-0' : 'translate-y-full'}" 
+			 style="background: var(--color-glass-bg); border-color: var(--color-border-primary);">
 			<div class="flex justify-center max-w-md mx-auto px-2">
 				<a 
 					href="/" 
-					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}"
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/') ? 'text-indigo-600' : ''}"
+					style="color: {isActive('/') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
 				>
 					<svg class="w-6 h-6 mb-1 {isActive('/') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
@@ -166,7 +172,8 @@
 				</a>
 				<a 
 					href="/transactions" 
-					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/transactions') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}"
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/transactions') ? 'text-indigo-600' : ''}"
+					style="color: {isActive('/transactions') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/transactions') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
 				>
 					<svg class="w-6 h-6 mb-1 {isActive('/transactions') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -178,7 +185,8 @@
 				</a>
 				<a 
 					href="/settings" 
-					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/settings') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}"
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/settings') ? 'text-indigo-600' : ''}"
+					style="color: {isActive('/settings') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/settings') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
 				>
 					<svg class="w-6 h-6 mb-1 {isActive('/settings') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>

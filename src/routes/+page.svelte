@@ -274,10 +274,10 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	}
 </script>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8" style="background: var(--color-bg-secondary); min-height: 100vh;">
 	<!-- Error Message -->
 	{#if $error}
-		<div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
+		<div class="rounded-xl p-4 flex items-center justify-between shadow-sm border border-red-200" style="background: rgba(254, 242, 242, 0.8);">
 			<p class="text-red-800 font-medium flex items-center">
 				<span class="text-xl mr-2">⚠️</span>
 				{$error}
@@ -293,7 +293,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 
 	<!-- Loading Indicator -->
 	{#if $loading}
-		<div class="bg-indigo-50 border border-indigo-200 rounded-xl p-6 shadow-sm">
+		<div class="rounded-xl p-6 shadow-sm border border-indigo-200" style="background: rgba(238, 242, 255, 0.8);">
 			<p class="text-indigo-900 font-medium text-center flex items-center justify-center">
 				<span class="text-2xl mr-3 animate-spin">🔄</span>
 				Loading transactions...
@@ -302,14 +302,15 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	{/if}
 
 	<!-- Month Selector -->
-	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+	<section class="rounded-2xl shadow-lg border p-6" style="background: var(--color-glass-bg); border-color: var(--color-glass-border); backdrop-filter: blur(20px);">
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 			<div class="flex flex-col sm:flex-row sm:items-center gap-4">
-				<label for="month-select" class="text-gray-800 font-semibold text-lg">Select Month:</label>
+				<label for="month-select" class="font-semibold text-lg" style="color: var(--color-text-primary);">Select Month:</label>
 				<select 
 					id="month-select" 
 					bind:value={selectedMonth}
-					class="px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 min-w-48 shadow-sm"
+					class="px-4 py-3 border rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 min-w-48 shadow-sm"
+					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 				>
 					{#each availableMonths as month}
 						<option value={month}>{formatMonthYear(month)}</option>
@@ -333,10 +334,10 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	</section>
 
 	<!-- Starting Balance Section -->
-	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+	<section class="rounded-2xl shadow-lg border p-6" style="background: var(--color-glass-bg); border-color: var(--color-glass-border); backdrop-filter: blur(20px);">
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 			<div class="flex-1">
-				<h3 class="text-xl font-bold text-gray-900 mb-3 flex items-center">
+				<h3 class="text-xl font-bold mb-3 flex items-center" style="color: var(--color-text-primary);">
 					<span class="text-3xl mr-3">💰</span>
 					Starting Balance
 				</h3>
@@ -344,7 +345,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 					{formatCurrency(openingBalanceAmount)}
 				</p>
 				{#if currentOpeningBalance?.note}
-					<p class="text-sm text-gray-600 italic bg-gray-50 px-3 py-1 rounded-lg inline-block">
+					<p class="text-sm italic px-3 py-1 rounded-lg inline-block" style="color: var(--color-text-secondary); background: var(--color-surface-hover);">
 						{currentOpeningBalance.note}
 					</p>
 				{/if}
@@ -383,13 +384,13 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 		{/if}
 
 		{#if showOpeningBalanceForm}
-			<div class="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-6 mt-4 shadow-inner">
-				<h4 class="text-lg font-semibold text-gray-900 mb-4">
+			<div class="border rounded-xl p-6 mt-4" style="background: var(--color-surface-hover); border-color: var(--color-border-primary); box-shadow: var(--shadow-sm);">
+				<h4 class="text-lg font-semibold mb-4" style="color: var(--color-text-primary);">
 					{currentOpeningBalance ? 'Update' : 'Set'} Starting Balance for {formatMonthYear(selectedMonth)}
 				</h4>
 				<form on:submit|preventDefault={setOpeningBalance} class="space-y-4">
 					<div>
-						<label for="opening-balance" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="opening-balance" class="block text-sm font-medium mb-2" style="color: var(--color-text-primary);">
 							Start of month balance
 						</label>
 						<input
@@ -400,11 +401,12 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 							bind:value={newOpeningBalance}
 							placeholder="0.00"
 							required
-							class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+							class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+							style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 						/>
 					</div>
 					<div>
-						<label for="balance-note" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="balance-note" class="block text-sm font-medium mb-2" style="color: var(--color-text-primary);">
 							Note (Optional)
 						</label>
 						<input
@@ -412,7 +414,8 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 							type="text"
 							bind:value={openingBalanceNote}
 							placeholder="e.g., Initial balance, Forwarded from previous month"
-							class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+							class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+							style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 						/>
 					</div>
 					<div class="flex flex-col sm:flex-row gap-3">
@@ -437,12 +440,12 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 
 	<!-- Monthly Summary Cards -->
 	<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-		<div class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+		<div class="rounded-2xl shadow-lg border p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" style="background: var(--color-glass-bg); border-color: var(--color-glass-border); backdrop-filter: blur(20px);">
 			<div class="flex items-center">
 				<div class="text-4xl mr-4">🏦</div>
 				<div class="flex-1">
-					<h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-1">Starting Balance</h3>
-					<p class="text-2xl font-bold text-gray-900">{formatCurrency(openingBalanceAmount)}</p>
+					<h3 class="text-sm font-semibold uppercase tracking-wide mb-1" style="color: var(--color-text-secondary);">Starting Balance</h3>
+					<p class="text-2xl font-bold" style="color: var(--color-text-primary);">{formatCurrency(openingBalanceAmount)}</p>
 				</div>
 			</div>
 		</div>
@@ -479,15 +482,15 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	</section>
 
 	<!-- Quick Transaction Entry -->
-	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
-		<h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+	<section class="rounded-2xl shadow-lg border p-6" style="background: var(--color-glass-bg); border-color: var(--color-glass-border); backdrop-filter: blur(20px);">
+		<h2 class="text-2xl font-bold mb-6 flex items-center" style="color: var(--color-text-primary);">
 			<span class="text-3xl mr-3">✨</span>
 			Add New Transaction
 		</h2>
 		<form on:submit|preventDefault={addTransaction} class="space-y-6">
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<div>
-					<label for="description" class="block text-sm font-semibold text-gray-700 mb-2">
+					<label for="description" class="block text-sm font-semibold mb-2" style="color: var(--color-text-primary);">
 						Description
 					</label>
 					<input
@@ -496,19 +499,21 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 						bind:value={newTransaction.description}
 						placeholder="Enter transaction description"
 						required
-						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 					/>
 				</div>
 
 				<div>
-					<label for="category" class="block text-sm font-semibold text-gray-700 mb-2">
+					<label for="category" class="block text-sm font-semibold mb-2" style="color: var(--color-text-primary);">
 						Category
 					</label>
 					<select 
 						id="category" 
 						bind:value={newTransaction.category} 
 						required
-						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 					>
 						<option value="">Select category</option>
 						{#each availableCategories as category}
@@ -520,7 +525,7 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<div>
-					<label for="amount" class="block text-sm font-semibold text-gray-700 mb-2">
+					<label for="amount" class="block text-sm font-semibold mb-2" style="color: var(--color-text-primary);">
 						Amount
 					</label>
 					<input
@@ -531,18 +536,20 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 						bind:value={newTransaction.amount}
 						placeholder="0.00"
 						required
-						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 					/>
 				</div>
 
 				<div>
-					<label for="type" class="block text-sm font-semibold text-gray-700 mb-2">
+					<label for="type" class="block text-sm font-semibold mb-2" style="color: var(--color-text-primary);">
 						Type
 					</label>
 					<select 
 						id="type" 
 						bind:value={newTransaction.type}
-						class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 					>
 						<option value="income">💰 Income</option>
 						<option value="expense">💸 Expense</option>
@@ -561,9 +568,9 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 	</section>
 
 	<!-- Monthly Transactions -->
-	<section class="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-white/20 p-6">
+	<section class="rounded-2xl shadow-lg border p-6" style="background: var(--color-glass-bg); border-color: var(--color-glass-border); backdrop-filter: blur(20px);">
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-			<h2 class="text-2xl font-bold text-gray-900 flex items-center">
+			<h2 class="text-2xl font-bold flex items-center" style="color: var(--color-text-primary);">
 				<span class="text-3xl mr-3">📊</span>
 				Transactions for {formatMonthYear(selectedMonth)}
 			</h2>
@@ -577,11 +584,21 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 
 		<div class="space-y-3">
 			{#each recentMonthlyTransactions as transaction (transaction.id)}
-				<div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-md {transaction.type === 'income' ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-red-500'}">
+				<div class="flex items-center justify-between p-4 border rounded-xl transition-all duration-200 transform hover:-translate-y-0.5 {transaction.type === 'income' ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-red-500'}" 
+					 style="border-color: var(--color-border-primary); background: var(--color-bg-primary);"
+					 on:mouseenter={(e) => {
+						e.currentTarget.style.background = 'var(--color-surface-hover)';
+						e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+					 }}
+					 on:mouseleave={(e) => {
+						e.currentTarget.style.background = 'var(--color-bg-primary)';
+						e.currentTarget.style.boxShadow = 'none';
+					 }}
+				>
 					<div class="flex-1">
-						<div class="font-semibold text-gray-900 mb-1">{transaction.description}</div>
-						<div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-							<span class="bg-gradient-to-r from-gray-100 to-gray-200 px-3 py-1 rounded-full font-medium">
+						<div class="font-semibold mb-1" style="color: var(--color-text-primary);">{transaction.description}</div>
+						<div class="flex flex-wrap items-center gap-3 text-sm" style="color: var(--color-text-secondary);">
+							<span class="px-3 py-1 rounded-full font-medium" style="background: var(--color-surface-hover);">
 								{formatCategoryName(transaction.category)}
 							</span>
 							<span class="flex items-center">
@@ -611,16 +628,16 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 			{/each}
 
 			{#if monthlyTransactions.length === 0 && !$loading}
-				<div class="text-center py-16 text-gray-500">
+				<div class="text-center py-16" style="color: var(--color-text-secondary);">
 					<div class="text-8xl mb-6">📝</div>
-					<p class="text-xl font-semibold mb-3 text-gray-700">No transactions found for {formatMonthYear(selectedMonth)}</p>
-					<p class="text-gray-600">Add your first transaction using the form above!</p>
+					<p class="text-xl font-semibold mb-3" style="color: var(--color-text-primary);">No transactions found for {formatMonthYear(selectedMonth)}</p>
+					<p style="color: var(--color-text-secondary);">Add your first transaction using the form above!</p>
 				</div>
 			{/if}
 		</div>
 
 		{#if monthlyTransactions.length > 5}
-			<div class="text-center mt-6 pt-6 border-t border-gray-200">
+			<div class="text-center mt-6 pt-6 border-t" style="border-color: var(--color-border-primary);">
 				<a 
 					href="/transactions" 
 					class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
@@ -629,8 +646,8 @@ ${formatCurrency(openingBalanceAmount)} + ${formatCurrency(monthlyIncome)} - ${f
 				</a>
 			</div>
 		{:else if monthlyTransactions.length > 0}
-			<div class="text-center mt-6 pt-6 border-t border-gray-200">
-				<p class="text-sm text-gray-500 italic bg-gray-50 px-4 py-2 rounded-lg inline-block">
+			<div class="text-center mt-6 pt-6 border-t" style="border-color: var(--color-border-primary);">
+				<p class="text-sm italic px-4 py-2 rounded-lg inline-block" style="color: var(--color-text-tertiary); background: var(--color-surface-hover);">
 					Showing all {monthlyTransactions.length} transaction{monthlyTransactions.length === 1 ? '' : 's'} for this month
 				</p>
 			</div>
