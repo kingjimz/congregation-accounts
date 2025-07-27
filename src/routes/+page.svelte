@@ -8,8 +8,8 @@
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
 	import MonthSelector from '$lib/components/dashboard/MonthSelector.svelte';
+	import AccountsReport from '$lib/components/AccountsReport.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
-	import { formatMonthlyReportText, generateMonthlyReport, getNextMonth } from '$lib/utils';
 	import type { TransactionFormData, Transaction } from '$lib/types';
 
 	// UI state
@@ -56,15 +56,6 @@
 		TransactionService.getRecentTransactions(monthlyData.transactions, 5)
 	);
 
-	// Check if next month balance should be suggested
-	const shouldSetupNextMonth = $derived(
-		TransactionService.shouldSuggestNextMonthBalance(
-			selectedMonth, 
-			monthlyData.transactions, 
-			$openingBalances
-		)
-	);
-
 	// Event handlers
 	async function handleTransactionSubmit(data: TransactionFormData) {
 		submitting = true;
@@ -108,30 +99,6 @@
 			console.error('Failed to set starting balance:', err);
 			alert('Failed to set starting balance. Please try again.');
 		}
-	}
-
-	async function handleSetupNextMonthBalance() {
-		const nextMonth = getNextMonth(selectedMonth);
-		try {
-			await openingBalanceStore.setMonthOpeningBalance(
-				nextMonth, 
-				monthlyData.endingBalance, 
-				`Auto-forwarded from ${selectedMonth}`
-			);
-		} catch (err) {
-			console.error('Failed to setup next month balance:', err);
-			alert('Failed to setup next month balance. Please try again.');
-		}
-	}
-
-	function handleGenerateReport() {
-		const report = generateMonthlyReport(
-			selectedMonth,
-			monthlyData.transactions,
-			monthlyData.openingBalance
-		);
-		const reportText = formatMonthlyReportText(report);
-		alert(reportText);
 	}
 
 	function handleDismissError() {
@@ -202,28 +169,13 @@
 					openingBalance={monthlyData.openingBalance}
 				/>
 
-				<!-- Quick Actions -->
-				<Card title="Quick Actions" class="mt-6">
-					<div class="space-y-3">
-						<Button 
-							variant="secondary" 
-							onclick={handleGenerateReport}
-							class="w-full"
-						>
-							📊 Generate Report
-						</Button>
-						
-						{#if shouldSetupNextMonth}
-							<Button 
-								variant="ghost" 
-								onclick={handleSetupNextMonthBalance}
-								class="w-full"
-							>
-								➡️ Setup Next Month
-							</Button>
-						{/if}
-					</div>
-				</Card>
+				<!-- PDF Report Generation -->
+				<AccountsReport
+					month={selectedMonth}
+					transactions={monthlyData.transactions}
+					openingBalance={monthlyData.openingBalance}
+					congregationName="Bolaoen Congregation"
+				/>
 			</div>
 
 			<!-- Recent Transactions -->

@@ -4,7 +4,7 @@
 export const INCOME_CATEGORIES = [
   'Worldwide Work Donations',
   'Local Congregation Donations',
-  'Other Income'
+  'Other Donations'
 ] as const;
 
 export const EXPENSE_CATEGORIES = [

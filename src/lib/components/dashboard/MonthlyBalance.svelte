@@ -53,9 +53,9 @@
 				</span>
 			</div>
 
-			<!-- Income -->
+			<!-- Donations -->
 			<div class="flex justify-between items-center py-2">
-				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Total Income</span>
+				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Total Donations</span>
 				<span class="text-sm font-semibold" style="color: var(--color-success);">
 					+{formatCurrency(monthlyIncome)}
 				</span>
@@ -88,7 +88,7 @@
 						<div class="text-sm font-semibold" style="color: var(--color-success);">
 							{transactions.filter(t => t.type === 'income').length}
 						</div>
-						<div class="text-xs" style="color: var(--color-text-tertiary);">Income</div>
+						<div class="text-xs" style="color: var(--color-text-tertiary);">Donations</div>
 					</div>
 					<div>
 						<div class="text-sm font-semibold" style="color: var(--color-error);">

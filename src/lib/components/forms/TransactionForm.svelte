@@ -127,7 +127,7 @@
 					class="mr-2"
 					disabled={loading}
 				/>
-				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Income</span>
+				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
 			</label>
 			<label class="flex items-center">
 				<input

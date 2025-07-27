@@ -66,13 +66,13 @@ MONTHLY REPORT - ${report.monthName}
 
 === MONTHLY BALANCE CALCULATION ===
 Starting Balance: ${formatCurrency(report.openingBalance)}
-Total Income: ${formatCurrency(report.totalIncome)}
+Total Donations: ${formatCurrency(report.totalIncome)}
 Total Expenses: ${formatCurrency(report.totalExpenses)}
 End of Month Balance: ${formatCurrency(report.endingBalance)}
 
 === TRANSACTION COUNT ===
 Total Transactions: ${report.transactionCount}
-Income Transactions: ${report.incomeTransactionCount}
+Donation Transactions: ${report.incomeTransactionCount}
 Expense Transactions: ${report.expenseTransactionCount}
 
 === CALCULATION BREAKDOWN ===

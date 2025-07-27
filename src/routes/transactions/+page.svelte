@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { transactions, loading, error, transactionStore } from '$lib/stores/transactions';
 	import { openingBalances, openingBalanceStore } from '$lib/stores/opening-balances';
+	import AccountsReport from '$lib/components/AccountsReport.svelte';
 	import type { Transaction } from '$lib/firestore';
 
 	// Reactive variable to track if data is being submitted
@@ -49,7 +50,7 @@
 	const incomeCategories = [
 		'Worldwide Work Donations',
 		'Local Congregation Donations',
-		'Other Income'
+		'Other Donations'
 	];
 
 	const expenseCategories = [
@@ -617,7 +618,7 @@
 
 					<div class="balance-activity">
 						<div class="activity-item income">
-							<span class="activity-label">Monthly Income</span>
+							<span class="activity-label">Monthly Donations</span>
 							<span class="activity-amount">+{formatCurrency(monthlyBalanceData.monthIncome)}</span>
 						</div>
 						<div class="activity-item expense">
@@ -640,7 +641,7 @@
 						<h4>🌍 Worldwide Work</h4>
 						<div class="category-stats">
 							<div class="stat-row">
-								<span>Income:</span>
+								<span>Donations:</span>
 								<span class="amount income">+{formatCurrency(monthlyBalanceData.worldwideWork.income)}</span>
 							</div>
 							<div class="stat-row">
@@ -660,7 +661,7 @@
 						<h4>🏛️ Local Congregation</h4>
 						<div class="category-stats">
 							<div class="stat-row">
-								<span>Income:</span>
+								<span>Donations:</span>
 								<span class="amount income">+{formatCurrency(monthlyBalanceData.localCongregation.income)}</span>
 							</div>
 							<div class="stat-row">
@@ -682,6 +683,22 @@
 				</div>
 			{/if}
 		</div>
+	</div>
+
+	<!-- PDF Report Generation -->
+	<div class="pdf-report-section">
+		<AccountsReport
+			month={selectedMonth}
+			transactions={$transactions.filter(t => {
+				const [year, month] = selectedMonth.split('-').map(Number);
+				const startOfMonth = new Date(year, month - 1, 1);
+				const endOfMonth = new Date(year, month, 0);
+				const transactionDate = new Date(t.date);
+				return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
+			})}
+			openingBalance={$openingBalances.find(ob => ob.month === selectedMonth) || null}
+			congregationName="Bolaoen Congregation"
+		/>
 	</div>
 
 	<!-- Filters and Transactions List -->
@@ -722,7 +739,7 @@
 				<label for="type-filter">Type</label>
 				<select id="type-filter" bind:value={filterType}>
 					<option value="all">All Types</option>
-					<option value="income">Income</option>
+					<option value="income">Donations</option>
 					<option value="expense">Expense</option>
 				</select>
 			</div>
@@ -1128,6 +1145,10 @@
 
 	/* Monthly Balance Section */
 	.monthly-balance-section {
+		margin-bottom: 2rem;
+	}
+
+	.pdf-report-section {
 		margin-bottom: 2rem;
 	}
 
