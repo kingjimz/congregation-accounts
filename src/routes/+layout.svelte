@@ -138,6 +138,7 @@
 							onclick={handleSignOut}
 							class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-lg font-medium transition-all duration-200 border border-white/20 hover:border-white/30 backdrop-blur-sm"
 							title="Sign Out"
+							aria-label="Sign Out"
 						>
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
