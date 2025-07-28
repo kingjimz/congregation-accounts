@@ -591,97 +591,90 @@
 		<div class="monthly-balance-card">
 			<h3>📅 {monthlyBalanceData.month} Summary</h3>
 			
+			<!-- Always show the balance flow, even if no activity -->
+			<div class="balance-flow">
+				<div class="balance-item opening">
+					<h4>Start of month balance</h4>
+					<p class="balance-amount" class:income={monthlyBalanceData.openingBalance >= 0} class:expense={monthlyBalanceData.openingBalance < 0}>
+						{formatCurrency(monthlyBalanceData.openingBalance)}
+					</p>
+					<button class="edit-balance-btn" on:click={openOpeningBalanceModal}>
+						{monthlyBalanceData.isManualOpeningBalance ? 'Edit' : 'Set Manual'} Balance
+					</button>
+				</div>
+
+				<div class="balance-activity">
+					<div class="activity-item income">
+						<span class="activity-label">Monthly Donations</span>
+						<span class="activity-amount">+{formatCurrency(monthlyBalanceData.monthIncome)}</span>
+					</div>
+					<div class="activity-item expense">
+						<span class="activity-label">Monthly Expenses</span>
+						<span class="activity-amount">-{formatCurrency(monthlyBalanceData.monthExpenses)}</span>
+					</div>
+				</div>
+
+				<div class="balance-item closing">
+					<h4>End of month balance</h4>
+					<p class="balance-amount" class:income={monthlyBalanceData.closingBalance >= 0} class:expense={monthlyBalanceData.closingBalance < 0}>
+						{formatCurrency(monthlyBalanceData.closingBalance)}
+					</p>
+					<p class="balance-note">This becomes next month's start of month balance</p>
+				</div>
+			</div>
+
+			<!-- Show no data message only when there's no activity -->
 			{#if !monthlyBalanceData.hasActivity}
-				<div class="no-data-message">
-					<p>📭 No transactions or manual balances found for this month.</p>
-					<p>Select a different month or add transactions to see data.</p>
-				</div>
-			{:else}
-				<div class="balance-flow">
-					<div class="balance-item opening">
-						<h4>Start of month balance</h4>
-						<p class="balance-amount" class:income={monthlyBalanceData.openingBalance >= 0} class:expense={monthlyBalanceData.openingBalance < 0}>
-							{formatCurrency(monthlyBalanceData.openingBalance)}
-						</p>
-						{#if monthlyBalanceData.isManualOpeningBalance}
-							<p class="balance-type-indicator manual">📝 Manual Entry</p>
-						{:else}
-							<p class="balance-type-indicator calculated">🧮 Previous Month's Closing</p>
-						{/if}
-						{#if monthlyBalanceData.openingBalanceNote}
-							<p class="balance-note">💬 {monthlyBalanceData.openingBalanceNote}</p>
-						{/if}
-						<button class="edit-balance-btn" on:click={openOpeningBalanceModal}>
-							{monthlyBalanceData.isManualOpeningBalance ? 'Edit' : 'Set Manual'} Balance
-						</button>
-					</div>
-
-					<div class="balance-activity">
-						<div class="activity-item income">
-							<span class="activity-label">Monthly Donations</span>
-							<span class="activity-amount">+{formatCurrency(monthlyBalanceData.monthIncome)}</span>
-						</div>
-						<div class="activity-item expense">
-							<span class="activity-label">Monthly Expenses</span>
-							<span class="activity-amount">-{formatCurrency(monthlyBalanceData.monthExpenses)}</span>
-						</div>
-					</div>
-
-					<div class="balance-item closing">
-						<h4>End of month balance</h4>
-						<p class="balance-amount" class:income={monthlyBalanceData.closingBalance >= 0} class:expense={monthlyBalanceData.closingBalance < 0}>
-							{formatCurrency(monthlyBalanceData.closingBalance)}
-						</p>
-						<p class="balance-note">This becomes next month's start of month balance</p>
-					</div>
-				</div>
-
-				<div class="monthly-breakdown">
-					<div class="monthly-category">
-						<h4>🌍 Worldwide Work</h4>
-						<div class="category-stats">
-							<div class="stat-row">
-								<span>Donations:</span>
-								<span class="amount income">+{formatCurrency(monthlyBalanceData.worldwideWork.income)}</span>
-							</div>
-							<div class="stat-row">
-								<span>Expenses:</span>
-								<span class="amount expense">-{formatCurrency(monthlyBalanceData.worldwideWork.expenses)}</span>
-							</div>
-							<div class="stat-row total">
-								<span>Net:</span>
-								<span class="amount" class:income={monthlyBalanceData.worldwideWork.balance >= 0} class:expense={monthlyBalanceData.worldwideWork.balance < 0}>
-									{formatCurrency(monthlyBalanceData.worldwideWork.balance)}
-								</span>
-							</div>
-						</div>
-					</div>
-
-					<div class="monthly-category">
-						<h4>🏛️ Local Congregation</h4>
-						<div class="category-stats">
-							<div class="stat-row">
-								<span>Donations:</span>
-								<span class="amount income">+{formatCurrency(monthlyBalanceData.localCongregation.income)}</span>
-							</div>
-							<div class="stat-row">
-								<span>Expenses:</span>
-								<span class="amount expense">-{formatCurrency(monthlyBalanceData.localCongregation.expenses)}</span>
-							</div>
-							<div class="stat-row total">
-								<span>Net:</span>
-								<span class="amount" class:income={monthlyBalanceData.localCongregation.balance >= 0} class:expense={monthlyBalanceData.localCongregation.balance < 0}>
-									{formatCurrency(monthlyBalanceData.localCongregation.balance)}
-								</span>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="monthly-summary">
-					<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
+				<div class="no-data-notice">
+					<p class="no-data-text">📭 No transactions or manual balances found for this month.</p>
 				</div>
 			{/if}
+
+			<div class="monthly-breakdown">
+				<div class="monthly-category">
+					<h4>🌍 Worldwide Work</h4>
+					<div class="category-stats">
+						<div class="stat-row">
+							<span>Donations:</span>
+							<span class="amount income">+{formatCurrency(monthlyBalanceData.worldwideWork.income)}</span>
+						</div>
+						<div class="stat-row">
+							<span>Expenses:</span>
+							<span class="amount expense">-{formatCurrency(monthlyBalanceData.worldwideWork.expenses)}</span>
+						</div>
+						<div class="stat-row total">
+							<span>Net:</span>
+							<span class="amount" class:income={monthlyBalanceData.worldwideWork.balance >= 0} class:expense={monthlyBalanceData.worldwideWork.balance < 0}>
+								{formatCurrency(monthlyBalanceData.worldwideWork.balance)}
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="monthly-category">
+					<h4>🏛️ Local Congregation</h4>
+					<div class="category-stats">
+						<div class="stat-row">
+							<span>Donations:</span>
+							<span class="amount income">+{formatCurrency(monthlyBalanceData.localCongregation.income)}</span>
+						</div>
+						<div class="stat-row">
+							<span>Expenses:</span>
+							<span class="amount expense">-{formatCurrency(monthlyBalanceData.localCongregation.expenses)}</span>
+						</div>
+						<div class="stat-row total">
+							<span>Net:</span>
+							<span class="amount" class:income={monthlyBalanceData.localCongregation.balance >= 0} class:expense={monthlyBalanceData.localCongregation.balance < 0}>
+								{formatCurrency(monthlyBalanceData.localCongregation.balance)}
+							</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="monthly-summary">
+				<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
+			</div>
 		</div>
 	</div>
 
@@ -1422,6 +1415,22 @@
 		font-size: 1.25rem;
 		font-weight: 600;
 		color: var(--color-text-primary);
+	}
+
+	.no-data-notice {
+		text-align: center;
+		padding: 1rem;
+		margin: 1rem 0;
+		color: var(--color-text-secondary);
+		background: var(--color-surface-primary);
+		border-radius: 8px;
+		border: 1px solid var(--color-border-secondary);
+	}
+
+	.no-data-text {
+		margin: 0;
+		font-size: 0.875rem;
+		font-style: italic;
 	}
 
 	/* Transactions List Section */

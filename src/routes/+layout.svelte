@@ -120,23 +120,23 @@
 {:else}
 	<div class="flex flex-col min-h-screen transition-colors duration-300" style="background: var(--color-bg-secondary);">
 		<!-- Header -->
-		<header class="bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
+		<header class="bg-gradient-to-r from-slate-800 to-slate-900 shadow-lg border-b border-slate-700">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between py-6">
-					<h1 class="text-2xl font-bold text-white flex items-center">
-						<span class="text-3xl mr-3 drop-shadow-sm">🏛️</span>
-						<span class="bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+					<h1 class="text-2xl font-bold flex items-center">
+						<span class="text-emerald-400 font-extrabold mr-3 text-3xl tracking-tight">CA</span>
+						<span class="bg-gradient-to-r from-slate-100 to-emerald-100 bg-clip-text text-transparent font-semibold tracking-wide">
 							Congregation Accounts
 						</span>
 					</h1>
 					<div class="flex items-center space-x-4">
 						<div class="hidden sm:block">
-							<span class="text-indigo-100 text-sm">Welcome back,</span>
-							<span class="text-white font-medium ml-1">{$user?.email?.split('@')[0]}</span>
+							<span class="text-slate-300 text-sm">Welcome back,</span>
+							<span class="text-emerald-300 font-medium ml-1">{$user?.email?.split('@')[0]}</span>
 						</div>
 						<button 
 							onclick={handleSignOut}
-							class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-lg font-medium transition-all duration-200 border border-white/20 hover:border-white/30 backdrop-blur-sm"
+							class="bg-slate-700/50 hover:bg-slate-600/60 text-slate-100 p-3 rounded-lg font-medium transition-all duration-200 border border-slate-600/40 hover:border-slate-500/60 backdrop-blur-sm"
 							title="Sign Out"
 							aria-label="Sign Out"
 						>

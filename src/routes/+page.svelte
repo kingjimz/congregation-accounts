@@ -141,7 +141,7 @@
 					variant="secondary"
 					onclick={() => showOpeningBalanceForm = true}
 				>
-					Set Opening Balance
+					Set Starting Balance
 				</Button>
 				<Button 
 					variant="primary"
@@ -220,14 +220,14 @@
 	<!-- Opening Balance Form Modal -->
 	<Modal 
 		open={showOpeningBalanceForm} 
-		title="Set Opening Balance"
+		title="Set Starting Balance"
 		size="sm"
 		onclose={() => showOpeningBalanceForm = false}
 	>
 		<div class="space-y-4">
 			<div>
 				<label for="opening-balance" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
-					Opening Balance Amount
+					Starting Balance Amount
 				</label>
 				<input
 					id="opening-balance"
@@ -249,7 +249,7 @@
 					id="opening-balance-note"
 					bind:value={openingBalanceNote}
 					rows="3"
-					placeholder="Add a note about this opening balance..."
+					placeholder="Add a note about this starting balance..."
 					class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
 					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 				></textarea>

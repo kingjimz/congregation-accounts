@@ -47,7 +47,7 @@
 		<div class="space-y-4">
 			<!-- Opening Balance -->
 			<div class="flex justify-between items-center py-2 border-b" style="border-color: var(--color-border-secondary);">
-				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Opening Balance</span>
+				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Start of month balance</span>
 				<span class="text-sm font-semibold" style="color: var(--color-text-primary);">
 					{formatCurrency(openingBalanceAmount)}
 				</span>
@@ -71,7 +71,7 @@
 
 			<!-- Ending Balance -->
 			<div class="flex justify-between items-center py-3 border-t-2" style="border-color: var(--color-border-primary);">
-				<span class="text-base font-semibold" style="color: var(--color-text-primary);">Ending Balance</span>
+				<span class="text-base font-semibold" style="color: var(--color-text-primary);">End of month balance</span>
 				<span class="text-lg font-bold" style="color: {endingBalance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
 					{formatCurrency(endingBalance)}
 				</span>

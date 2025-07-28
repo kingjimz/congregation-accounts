@@ -71,7 +71,7 @@
 	const hasTransactions = $derived(transactions.length > 0);
 </script>
 
-<div class="accounts-report">
+<div class="accounts-report mt-3">
 	<div class="report-header">
 		<h3 class="report-title">📊 Generate Monthly Report</h3>
 		<p class="report-subtitle">
