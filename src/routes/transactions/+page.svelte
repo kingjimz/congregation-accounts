@@ -233,10 +233,7 @@
 			const startOfMonth = new Date(year, monthNum - 1, 1);
 			const endOfMonth = new Date(year, monthNum, 0);
 			
-			const transactionsInMonth = $transactions.filter(t => {
-				const transactionDate = new Date(t.date);
-				return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
-			});
+			const transactionsInMonth = $transactions.filter(t => t.date.startsWith(month));
 			
 			const monthIncome = transactionsInMonth
 				.filter(t => t.type === 'income')
@@ -261,10 +258,7 @@
 		const openingBalance = calculateOpeningBalanceForMonth(monthString);
 		
 		// Get transactions for this month
-		const transactionsInMonth = $transactions.filter(t => {
-			const transactionDate = new Date(t.date);
-			return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
-		});
+		const transactionsInMonth = $transactions.filter(t => t.date.startsWith(monthString));
 		
 		// Calculate month activity
 		const monthIncome = transactionsInMonth
@@ -287,11 +281,8 @@
 		// Check if there's a manual opening balance for this month
 		const manualOpeningBalanceRecord = $openingBalances.find(ob => ob.month === selectedMonth);
 		
-		// Get transactions for the selected month
-		const transactionsInMonth = $transactions.filter(t => {
-			const transactionDate = new Date(t.date);
-			return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
-		});
+		// Get transactions for the selected month (use same logic as dashboard)
+		const transactionsInMonth = $transactions.filter(t => t.date.startsWith(selectedMonth));
 		
 		// Check if this month has any activity (transactions or manual opening balance)
 		const hasActivity = transactionsInMonth.length > 0 || manualOpeningBalanceRecord;
@@ -319,6 +310,19 @@
 			.filter(t => t.type === 'expense')
 			.reduce((sum, t) => sum + t.amount, 0);
 		
+		// Debug: log all income transactions for this month
+		console.log('=== TRANSACTION DEBUG ===');
+		console.log('Selected month:', selectedMonth);
+		console.log('Transactions in month:', transactionsInMonth.length);
+		console.log('All income transactions:', transactionsInMonth.filter(t => t.type === 'income').map(t => ({
+			date: t.date,
+			category: t.category,
+			description: t.description,
+			amount: t.amount
+		})));
+		console.log('Total income (should match dashboard):', monthIncome);
+		console.log('========================');
+		
 		// Calculate closing balance
 		const closingBalance = openingBalance + monthIncome - monthExpenses;
 		
@@ -331,11 +335,27 @@
 			.reduce((sum, t) => sum + t.amount, 0);
 			
 		const monthLocalIncome = transactionsInMonth
-			.filter(t => t.type === 'income' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
+			.filter(t => t.type === 'income' && t.category.includes('Local Congregation'))
 			.reduce((sum, t) => sum + t.amount, 0);
 		const monthLocalExpenses = transactionsInMonth
-			.filter(t => t.type === 'expense' && (t.category.includes('Local Congregation') || !t.category.includes('Worldwide Work')))
+			.filter(t => t.type === 'expense' && t.category.includes('Local Congregation'))
 			.reduce((sum, t) => sum + t.amount, 0);
+		
+		const monthOtherIncome = transactionsInMonth
+			.filter(t => t.type === 'income' && t.category.includes('Other'))
+			.reduce((sum, t) => sum + t.amount, 0);
+		const monthOtherExpenses = transactionsInMonth
+			.filter(t => t.type === 'expense' && t.category.includes('Other'))
+			.reduce((sum, t) => sum + t.amount, 0);
+		
+		// Debug: check category breakdown totals
+		console.log('=== CATEGORY BREAKDOWN DEBUG ===');
+		console.log('Worldwide income:', monthWorldwideIncome);
+		console.log('Local income:', monthLocalIncome);
+		console.log('Other income:', monthOtherIncome);
+		console.log('Category breakdown total:', monthWorldwideIncome + monthLocalIncome + monthOtherIncome);
+		console.log('Should equal monthIncome:', monthIncome);
+		console.log('===============================');
 		
 		return {
 			month: startOfMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
@@ -356,6 +376,11 @@
 				income: monthLocalIncome,
 				expenses: monthLocalExpenses,
 				balance: monthLocalIncome - monthLocalExpenses
+			},
+			other: {
+				income: monthOtherIncome,
+				expenses: monthOtherExpenses,
+				balance: monthOtherIncome - monthOtherExpenses
 			}
 		};
 	})();
@@ -670,9 +695,34 @@
 						</div>
 					</div>
 				</div>
+
+				<div class="monthly-category">
+					<h4>📋 Other</h4>
+					<div class="category-stats">
+						<div class="stat-row">
+							<span>Donations:</span>
+							<span class="amount income">+{formatCurrency(monthlyBalanceData.other.income)}</span>
+						</div>
+						<div class="stat-row">
+							<span>Expenses:</span>
+							<span class="amount expense">-{formatCurrency(monthlyBalanceData.other.expenses)}</span>
+						</div>
+						<div class="stat-row total">
+							<span>Net:</span>
+							<span class="amount" class:income={monthlyBalanceData.other.balance >= 0} class:expense={monthlyBalanceData.other.balance < 0}>
+								{formatCurrency(monthlyBalanceData.other.balance)}
+							</span>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<div class="monthly-summary">
+				<div class="summary-verification">
+					<h4>✅ Total Verification</h4>
+					<p><strong>Total Donations:</strong> {formatCurrency(monthlyBalanceData.worldwideWork.income + monthlyBalanceData.localCongregation.income + monthlyBalanceData.other.income)} (Should equal: {formatCurrency(monthlyBalanceData.monthIncome)})</p>
+					<p><strong>Total Expenses:</strong> {formatCurrency(monthlyBalanceData.worldwideWork.expenses + monthlyBalanceData.localCongregation.expenses + monthlyBalanceData.other.expenses)} (Should equal: {formatCurrency(monthlyBalanceData.monthExpenses)})</p>
+				</div>
 				<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
 			</div>
 		</div>
@@ -682,13 +732,7 @@
 	<div class="pdf-report-section">
 		<AccountsReport
 			month={selectedMonth}
-			transactions={$transactions.filter(t => {
-				const [year, month] = selectedMonth.split('-').map(Number);
-				const startOfMonth = new Date(year, month - 1, 1);
-				const endOfMonth = new Date(year, month, 0);
-				const transactionDate = new Date(t.date);
-				return transactionDate >= startOfMonth && transactionDate <= endOfMonth;
-			})}
+			transactions={$transactions.filter(t => t.date.startsWith(selectedMonth))}
 			openingBalance={$openingBalances.find(ob => ob.month === selectedMonth) || null}
 			congregationName="Bolaoen Congregation"
 		/>
