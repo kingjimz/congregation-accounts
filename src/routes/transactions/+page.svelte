@@ -310,6 +310,11 @@
 			.filter(t => t.type === 'expense')
 			.reduce((sum, t) => sum + t.amount, 0);
 		
+		// Simple debug to check if we're looking at the right month and data
+		if (transactionsInMonth.length > 0) {
+			console.log(`Month: ${selectedMonth}, Transactions: ${transactionsInMonth.length}, Total Income: ${monthIncome}`);
+		}
+		
 		// Calculate closing balance
 		const closingBalance = openingBalance + monthIncome - monthExpenses;
 		
@@ -669,26 +674,6 @@
 							<span>Net:</span>
 							<span class="amount" class:income={monthlyBalanceData.localCongregation.balance >= 0} class:expense={monthlyBalanceData.localCongregation.balance < 0}>
 								{formatCurrency(monthlyBalanceData.localCongregation.balance)}
-							</span>
-						</div>
-					</div>
-				</div>
-
-				<div class="monthly-category">
-					<h4>📋 Other</h4>
-					<div class="category-stats">
-						<div class="stat-row">
-							<span>Donations:</span>
-							<span class="amount income">+{formatCurrency(monthlyBalanceData.other.income)}</span>
-						</div>
-						<div class="stat-row">
-							<span>Expenses:</span>
-							<span class="amount expense">-{formatCurrency(monthlyBalanceData.other.expenses)}</span>
-						</div>
-						<div class="stat-row total">
-							<span>Net:</span>
-							<span class="amount" class:income={monthlyBalanceData.other.balance >= 0} class:expense={monthlyBalanceData.other.balance < 0}>
-								{formatCurrency(monthlyBalanceData.other.balance)}
 							</span>
 						</div>
 					</div>
