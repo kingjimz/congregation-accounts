@@ -310,19 +310,6 @@
 			.filter(t => t.type === 'expense')
 			.reduce((sum, t) => sum + t.amount, 0);
 		
-		// Debug: log all income transactions for this month
-		console.log('=== TRANSACTION DEBUG ===');
-		console.log('Selected month:', selectedMonth);
-		console.log('Transactions in month:', transactionsInMonth.length);
-		console.log('All income transactions:', transactionsInMonth.filter(t => t.type === 'income').map(t => ({
-			date: t.date,
-			category: t.category,
-			description: t.description,
-			amount: t.amount
-		})));
-		console.log('Total income (should match dashboard):', monthIncome);
-		console.log('========================');
-		
 		// Calculate closing balance
 		const closingBalance = openingBalance + monthIncome - monthExpenses;
 		
@@ -347,15 +334,6 @@
 		const monthOtherExpenses = transactionsInMonth
 			.filter(t => t.type === 'expense' && t.category.includes('Other'))
 			.reduce((sum, t) => sum + t.amount, 0);
-		
-		// Debug: check category breakdown totals
-		console.log('=== CATEGORY BREAKDOWN DEBUG ===');
-		console.log('Worldwide income:', monthWorldwideIncome);
-		console.log('Local income:', monthLocalIncome);
-		console.log('Other income:', monthOtherIncome);
-		console.log('Category breakdown total:', monthWorldwideIncome + monthLocalIncome + monthOtherIncome);
-		console.log('Should equal monthIncome:', monthIncome);
-		console.log('===============================');
 		
 		return {
 			month: startOfMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
@@ -718,11 +696,6 @@
 			</div>
 
 			<div class="monthly-summary">
-				<div class="summary-verification">
-					<h4>✅ Total Verification</h4>
-					<p><strong>Total Donations:</strong> {formatCurrency(monthlyBalanceData.worldwideWork.income + monthlyBalanceData.localCongregation.income + monthlyBalanceData.other.income)} (Should equal: {formatCurrency(monthlyBalanceData.monthIncome)})</p>
-					<p><strong>Total Expenses:</strong> {formatCurrency(monthlyBalanceData.worldwideWork.expenses + monthlyBalanceData.localCongregation.expenses + monthlyBalanceData.other.expenses)} (Should equal: {formatCurrency(monthlyBalanceData.monthExpenses)})</p>
-				</div>
 				<p><strong>Total Transactions:</strong> {monthlyBalanceData.transactionCount}</p>
 			</div>
 		</div>
