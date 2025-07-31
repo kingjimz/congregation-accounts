@@ -15,6 +15,12 @@ export const EXPENSE_CATEGORIES = [
 
 export const ALL_CATEGORIES = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES] as const;
 
+// Description options for donations
+export const DONATION_DESCRIPTIONS = [
+  'Contributions to Worldwide Work',
+  'Contributions - Local Congregation Expenses'
+] as const;
+
 // Category display shortcuts
 export const CATEGORY_SHORTCUTS: Record<string, string> = {
   'Local Congregation Donations': 'Local Donations',

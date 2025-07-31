@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { Button, Input, Select } from '$lib/components/ui';
-	import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '$lib/constants';
+	import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, DONATION_DESCRIPTIONS } from '$lib/constants';
 	import { validateTransaction, getTodayLocalDate } from '$lib/utils';
 	import type { TransactionFormData, ValidationError } from '$lib/types';
 
@@ -45,6 +45,14 @@
 		availableCategories.map(category => ({
 			value: category,
 			label: category
+		}))
+	);
+
+	// Convert donation descriptions to options for select component
+	const descriptionOptions = $derived(
+		DONATION_DESCRIPTIONS.map(description => ({
+			value: description,
+			label: description
 		}))
 	);
 
@@ -154,16 +162,29 @@
 		/>
 
 		<!-- Description -->
-		<Input
-			type="text"
-			label="Description"
-			value={formData.description}
-			placeholder="Enter transaction description..."
-			required
-			disabled={loading}
-			error={errors.description}
-			oninput={updateDescription}
-		/>
+		{#if formData.type === 'income'}
+			<Select
+				label="Description"
+				value={formData.description}
+				options={descriptionOptions}
+				placeholder="Select a description..."
+				required
+				disabled={loading}
+				error={errors.description}
+				onchange={updateDescription}
+			/>
+		{:else}
+			<Input
+				type="text"
+				label="Description"
+				value={formData.description}
+				placeholder="Enter expense description..."
+				required
+				disabled={loading}
+				error={errors.description}
+				oninput={updateDescription}
+			/>
+		{/if}
 
 		<!-- Amount -->
 		<Input
@@ -171,7 +192,6 @@
 			label="Amount"
 			value={formData.amount}
 			placeholder="0.00"
-			min={0.01}
 			step={0.01}
 			required
 			disabled={loading}
