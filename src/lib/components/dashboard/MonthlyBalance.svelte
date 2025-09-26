@@ -8,13 +8,15 @@
 		transactions: Transaction[];
 		openingBalance: OpeningBalance | null;
 		loading?: boolean;
+		onSetOpeningBalance?: () => void;
 	}
 
-	let { 
+	let {
 		month,
 		transactions,
 		openingBalance,
-		loading = false
+		loading = false,
+		onSetOpeningBalance
 	}: Props = $props();
 
 	// Calculate totals
@@ -48,9 +50,24 @@
 			<!-- Opening Balance -->
 			<div class="flex justify-between items-center py-2 border-b" style="border-color: var(--color-border-secondary);">
 				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Opening Balance</span>
-				<span class="text-sm font-semibold" style="color: var(--color-text-primary);">
-					{formatCurrency(openingBalanceAmount)}
-				</span>
+				<div class="flex items-center gap-2">
+					<span class="text-sm font-semibold" style="color: var(--color-text-primary);">
+						{formatCurrency(openingBalanceAmount)}
+					</span>
+					{#if onSetOpeningBalance}
+						<button
+							type="button"
+							onclick={onSetOpeningBalance}
+							class="p-1 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/20 transition-colors"
+							title="Set Opening Balance"
+							aria-label="Set Opening Balance"
+						>
+							<svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+							</svg>
+						</button>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Donations -->

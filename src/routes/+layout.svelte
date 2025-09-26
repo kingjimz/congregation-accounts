@@ -108,6 +108,22 @@
 		if (route !== '/' && $page.url.pathname.startsWith(route)) return true;
 		return false;
 	}
+
+	// Function to format username from email
+	function formatUsername(email: string | undefined): string {
+		if (!email) return '';
+
+		// Get the part before @
+		const username = email.split('@')[0];
+
+		// Split by dots and capitalize each part
+		const parts = username.split('.');
+		const formatted = parts
+			.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+			.join(' ');
+
+		return formatted;
+	}
 </script>
 
 {#if $loading}
@@ -132,7 +148,7 @@
 					<div class="flex items-center space-x-4">
 						<div class="hidden sm:block">
 							<span class="text-indigo-100 text-sm">Welcome back,</span>
-							<span class="text-white font-medium ml-1">{$user?.email?.split('@')[0]}</span>
+							<span class="text-white font-medium ml-1">{formatUsername($user?.email)}</span>
 						</div>
 						<button 
 							onclick={handleSignOut}
@@ -158,8 +174,8 @@
 		<nav class="fixed bottom-0 left-0 right-0 backdrop-blur-lg border-t shadow-lg transition-all duration-300 ease-in-out {showBottomNav ? 'translate-y-0' : 'translate-y-full'}" 
 			 style="background: var(--color-glass-bg); border-color: var(--color-border-primary);">
 			<div class="flex justify-center max-w-md mx-auto px-2">
-				<a 
-					href="/" 
+				<a
+					href="/"
 					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/') ? 'text-indigo-600' : ''}"
 					style="color: {isActive('/') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
 				>
@@ -171,21 +187,8 @@
 						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
 					{/if}
 				</a>
-				<a 
-					href="/transactions" 
-					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/transactions') ? 'text-indigo-600' : ''}"
-					style="color: {isActive('/transactions') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/transactions') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
-				>
-					<svg class="w-6 h-6 mb-1 {isActive('/transactions') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-					</svg>
-					<span class="text-xs font-medium {isActive('/transactions') ? 'font-semibold' : ''}">Transactions</span>
-					{#if isActive('/transactions')}
-						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
-					{/if}
-				</a>
-				<a 
-					href="/settings" 
+				<a
+					href="/settings"
 					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/settings') ? 'text-indigo-600' : ''}"
 					style="color: {isActive('/settings') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/settings') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
 				>

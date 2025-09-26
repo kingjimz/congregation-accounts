@@ -14,7 +14,7 @@
 		onedit?: (event: { transaction: Transaction }) => void;
 	}
 
-	let { 
+	let {
 		transactions = [],
 		title = 'Recent Transactions',
 		showActions = true,
@@ -33,17 +33,44 @@
 		maxItems ? transactions.slice(0, maxItems) : transactions
 	);
 
+	// Track which menu is open
+	let openMenuId = $state<string | null>(null);
+
 	function handleDelete(transaction: Transaction) {
-		if (transaction.id && confirm('Are you sure you want to delete this transaction?')) {
+		if (transaction.id) {
 			ondelete?.({ id: transaction.id });
 			dispatch('delete', { id: transaction.id });
+			openMenuId = null;
 		}
 	}
 
 	function handleEdit(transaction: Transaction) {
 		onedit?.({ transaction });
 		dispatch('edit', { transaction });
+		openMenuId = null;
 	}
+
+	function toggleMenu(transactionId: string | undefined) {
+		if (!transactionId) return;
+		openMenuId = openMenuId === transactionId ? null : transactionId;
+	}
+
+	// Close menu when clicking outside
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (!target.closest('.menu-container')) {
+			openMenuId = null;
+		}
+	}
+
+	$effect(() => {
+		if (openMenuId) {
+			document.addEventListener('click', handleClickOutside);
+			return () => {
+				document.removeEventListener('click', handleClickOutside);
+			};
+		}
+	});
 </script>
 
 <Card title={title}>
@@ -60,38 +87,73 @@
 	{:else}
 		<div class="space-y-3">
 			{#each displayTransactions as transaction (transaction.id)}
-				<div class="border rounded-lg p-4 hover:opacity-90 transition-all" style="border-color: var(--color-border-primary); background: var(--color-surface-elevated);">
-					<div class="flex items-center justify-between">
+				<div class="border rounded-lg p-4 hover:shadow-sm transition-all" style="border-color: var(--color-border-primary); background: var(--color-surface-elevated);">
+					<div class="flex items-start justify-between">
 						<div class="flex-1">
 							<div class="flex items-center justify-between">
 								<h4 class="text-sm font-medium" style="color: var(--color-text-primary);">
 									{transaction.description}
 								</h4>
-								<div class="flex items-center space-x-2">
+								<div class="flex items-center gap-3">
 									<span class="text-sm font-semibold" style="color: {transaction.type === 'income' ? 'var(--color-success)' : 'var(--color-error)'};">
 										{transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
 									</span>
 									{#if showActions}
-										<div class="flex space-x-1">
-											{#if onedit}
-												<button
-													type="button"
-													onclick={() => handleEdit(transaction)}
-													class="text-xs font-medium hover:underline"
-													style="color: var(--color-accent);"
-												>
-													Edit
-												</button>
-											{/if}
-											{#if ondelete}
-												<button
-													type="button"
-													onclick={() => handleDelete(transaction)}
-													class="text-xs font-medium hover:underline"
-													style="color: var(--color-error);"
-												>
-													Delete
-												</button>
+										<div class="relative menu-container">
+											<button
+												type="button"
+												onclick={(e) => {
+													e.stopPropagation();
+													toggleMenu(transaction.id);
+												}}
+												class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+												aria-label="Transaction options"
+											>
+												<svg class="w-5 h-5" style="color: var(--color-text-secondary);" fill="currentColor" viewBox="0 0 24 24">
+													<circle cx="12" cy="5" r="2"/>
+													<circle cx="12" cy="12" r="2"/>
+													<circle cx="12" cy="19" r="2"/>
+												</svg>
+											</button>
+
+											{#if openMenuId === transaction.id}
+												<div class="absolute right-0 mt-2 w-48 rounded-lg shadow-lg border z-50"
+													style="background: var(--color-bg-primary); border-color: var(--color-border-primary);">
+													<div class="py-1">
+														{#if onedit}
+															<button
+																type="button"
+																onclick={(e) => {
+																	e.stopPropagation();
+																	handleEdit(transaction);
+																}}
+																class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+																style="color: var(--color-text-primary);"
+															>
+																<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+																</svg>
+																Edit Transaction
+															</button>
+														{/if}
+														{#if ondelete}
+															<button
+																type="button"
+																onclick={(e) => {
+																	e.stopPropagation();
+																	handleDelete(transaction);
+																}}
+																class="w-full text-left px-4 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
+																style="color: var(--color-error);"
+															>
+																<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+																</svg>
+																Delete Transaction
+															</button>
+														{/if}
+													</div>
+												</div>
 											{/if}
 										</div>
 									{/if}
@@ -116,3 +178,9 @@
 		{/if}
 	{/if}
 </Card>
+
+<style>
+	.menu-container {
+		position: relative;
+	}
+</style>
