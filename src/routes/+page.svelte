@@ -6,7 +6,7 @@
 	import TransactionForm from '$lib/components/forms/TransactionForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
-	import MonthSelector from '$lib/components/dashboard/MonthSelector.svelte';
+	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import type { TransactionFormData, Transaction } from '$lib/types';
 
@@ -16,7 +16,7 @@
 	let showEditTransactionForm = $state(false);
 	let showDeleteConfirmation = $state(false);
 	let submitting = $state(false);
-	let selectedMonth = $state(''); // Will be set to latest month
+	let selectedMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM format
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
 
@@ -39,41 +39,21 @@
 		]);
 	});
 
-	// Get available months and update selected month when data loads
-	const availableMonths = $derived(
-		TransactionService.getAvailableMonths($transactions, $openingBalances)
-	);
-
-	// Set initial selected month only when component first loads or when selectedMonth is empty
-	$effect(() => {
-		if (availableMonths.length > 0) {
-			// Only set to latest month if no month is currently selected
-			// This preserves user's selection when switching between months
-			if (!selectedMonth) {
-				// Get the most recent month (latest chronologically)
-				const sortedMonths = [...availableMonths].sort((a, b) => b.localeCompare(a));
-				selectedMonth = sortedMonths[0];
-			} else {
-				// Check if the selected month is still available
-				// If not (e.g., month was deleted), reset to latest
-				if (!availableMonths.includes(selectedMonth)) {
-					const sortedMonths = [...availableMonths].sort((a, b) => b.localeCompare(a));
-					selectedMonth = sortedMonths[0];
-				}
-			}
-		} else if (!selectedMonth) {
-			// If no data and no selection, default to current month
-			selectedMonth = new Date().toISOString().slice(0, 7);
-		}
-	});
 
 	// Get monthly data for selected month
-	const monthlyData = $derived(
-		TransactionService.getMonthlyData(selectedMonth, $transactions, $openingBalances)
-	);
+	const monthlyData = $derived(() => {
+		if (selectedMonth === '') {
+			// Show all transactions
+			return {
+				transactions: [...$transactions].sort((a, b) => b.date.localeCompare(a.date)),
+				openingBalance: 0
+			};
+		}
+		return TransactionService.getMonthlyData(selectedMonth, $transactions, $openingBalances);
+	});
 
-	// Get all transactions for the selected month
-	const allTransactions = $derived(monthlyData.transactions);
+	// Get all transactions for display
+	const allTransactions = $derived(monthlyData().transactions);
 
 	// Categories for classification - matching the actual categories from constants
 	const LOCAL_CONGREGATION_CATEGORIES = [
@@ -211,7 +191,7 @@
 
 	// Reset page when month changes
 	$effect(() => {
-		selectedMonth; // Track selectedMonth changes
+		selectedMonth; // Track month changes
 		currentPage = 1;
 	});
 
@@ -228,7 +208,7 @@
 			showTransactionForm = false;
 
 			// Automatically switch to the month of the new transaction
-			const transactionMonth = transactionData.date.substring(0, 7); // Get YYYY-MM format
+			const transactionMonth = transactionData.date.substring(0, 7);
 			if (transactionMonth !== selectedMonth) {
 				selectedMonth = transactionMonth;
 			}
@@ -293,10 +273,10 @@
 			editingTransaction = null;
 
 			// Automatically switch to the month of the updated transaction if date changed
-			const transactionMonth = transactionData.date.substring(0, 7); // Get YYYY-MM format
+			const transactionMonth = transactionData.date.substring(0, 7);
 			if (transactionMonth !== selectedMonth) {
 				selectedMonth = transactionMonth;
-				currentPage = 1; // Reset to first page
+				currentPage = 1;
 			}
 		} catch (err) {
 			console.error('Failed to update transaction:', err);
@@ -405,11 +385,12 @@
 			</div>
 		</div>
 
-		<!-- Month Selector -->
-		<MonthSelector
-			selectedMonth={selectedMonth}
-			availableMonths={availableMonths}
+		<!-- Month Picker -->
+		<MonthPicker
+			value={selectedMonth}
+			loading={$loading}
 			onchange={handleMonthChange}
+			showAll={true}
 		/>
 
 		<!-- Main Content Grid -->
@@ -418,9 +399,9 @@
 			<div class="lg:col-span-1 space-y-6">
 				<!-- Monthly Balance Card -->
 				<MonthlyBalance
-					month={selectedMonth}
-					transactions={monthlyData.transactions}
-					openingBalance={monthlyData.openingBalance}
+					month={selectedMonth || 'All'}
+					transactions={monthlyData().transactions}
+					openingBalance={monthlyData().openingBalance}
 					onSetOpeningBalance={() => showOpeningBalanceForm = true}
 				/>
 
@@ -547,8 +528,9 @@
 								disabled={currentPage === 1}
 								class="px-3 py-1 rounded-lg transition-all duration-200 {currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50'}"
 								style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);"
+								aria-label="Previous page"
 							>
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<svg class="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
 								</svg>
 							</button>
@@ -576,8 +558,9 @@
 								disabled={currentPage === totalPages}
 								class="px-3 py-1 rounded-lg transition-all duration-200 {currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50'}"
 								style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);"
+								aria-label="Next page"
 							>
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<svg class="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
 								</svg>
 							</button>
