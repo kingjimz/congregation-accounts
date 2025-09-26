@@ -18,6 +18,7 @@ export const ALL_CATEGORIES = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES] as c
 // Description options for donations
 export const DONATION_DESCRIPTIONS = [
   'Contributions to Worldwide Work',
+  'Contributions to Kingdom Hall Fund',
   'Contributions - Local Congregation Expenses'
 ] as const;
 
