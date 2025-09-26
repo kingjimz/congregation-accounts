@@ -44,19 +44,25 @@
 		TransactionService.getAvailableMonths($transactions, $openingBalances)
 	);
 
-	// Always select the latest/most recent month
+	// Set initial selected month only when component first loads or when selectedMonth is empty
 	$effect(() => {
 		if (availableMonths.length > 0) {
-			// Get the most recent month (latest chronologically)
-			const sortedMonths = [...availableMonths].sort((a, b) => b.localeCompare(a));
-			const latestMonth = sortedMonths[0];
-
-			// Only update if not already set to latest month or if selectedMonth is empty
-			if (!selectedMonth || selectedMonth !== latestMonth) {
-				selectedMonth = latestMonth;
+			// Only set to latest month if no month is currently selected
+			// This preserves user's selection when switching between months
+			if (!selectedMonth) {
+				// Get the most recent month (latest chronologically)
+				const sortedMonths = [...availableMonths].sort((a, b) => b.localeCompare(a));
+				selectedMonth = sortedMonths[0];
+			} else {
+				// Check if the selected month is still available
+				// If not (e.g., month was deleted), reset to latest
+				if (!availableMonths.includes(selectedMonth)) {
+					const sortedMonths = [...availableMonths].sort((a, b) => b.localeCompare(a));
+					selectedMonth = sortedMonths[0];
+				}
 			}
-		} else {
-			// If no data, default to current month
+		} else if (!selectedMonth) {
+			// If no data and no selection, default to current month
 			selectedMonth = new Date().toISOString().slice(0, 7);
 		}
 	});
