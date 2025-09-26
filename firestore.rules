@@ -1,16 +1,49 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to validate note data (without userId)
+    function isValidNote() {
+      return request.resource.data.keys().hasAll(['title', 'content', 'createdAt', 'updatedAt']) &&
+             request.resource.data.title is string &&
+             request.resource.data.content is string &&
+             request.resource.data.title.size() > 0 &&
+             request.resource.data.title.size() <= 100 &&
+             request.resource.data.content.size() > 0 &&
+             request.resource.data.content.size() <= 5000;
+    }
+
+    // Notes collection rules (simplified without userId)
+    match /notes/{noteId} {
+      // Allow authenticated users to read all notes
+      allow read: if isAuthenticated();
+
+      // Allow authenticated users to create notes
+      allow create: if isAuthenticated() &&
+                       isValidNote();
+
+      // Allow authenticated users to update notes
+      allow update: if isAuthenticated() &&
+                       isValidNote();
+
+      // Allow authenticated users to delete notes
+      allow delete: if isAuthenticated();
+    }
+
     // Allow authenticated users to read and write transactions
     match /transactions/{document} {
       allow read, write: if request.auth != null;
     }
-    
+
     // Allow authenticated users to read and write opening balances
     match /opening_balances/{document} {
       allow read, write: if request.auth != null;
     }
-    
+
     // Deny access to all other documents
     match /{document=**} {
       allow read, write: if false;
