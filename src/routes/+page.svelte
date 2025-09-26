@@ -16,7 +16,7 @@
 	let showEditTransactionForm = $state(false);
 	let showDeleteConfirmation = $state(false);
 	let submitting = $state(false);
-	let selectedMonth = $state(new Date().toISOString().slice(0, 7)); // Current month as fallback
+	let selectedMonth = $state(''); // Will be set to latest month
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
 
@@ -28,6 +28,7 @@
 	// Opening balance form state
 	let newOpeningBalance = $state(0);
 	let openingBalanceNote = $state('');
+	let openingBalanceDate = $state(new Date().toISOString().slice(0, 10));
 
 	// Load data on mount
 	onMount(async () => {
@@ -43,13 +44,20 @@
 		TransactionService.getAvailableMonths($transactions, $openingBalances)
 	);
 
-	// Auto-select most recent month with data when data loads
+	// Always select the latest/most recent month
 	$effect(() => {
-		if (availableMonths.length > 0 && !availableMonths.includes(selectedMonth)) {
-			const mostRecent = TransactionService.getMostRecentMonth($transactions, $openingBalances);
-			if (mostRecent) {
-				selectedMonth = mostRecent;
+		if (availableMonths.length > 0) {
+			// Get the most recent month (latest chronologically)
+			const sortedMonths = [...availableMonths].sort((a, b) => b.localeCompare(a));
+			const latestMonth = sortedMonths[0];
+
+			// Only update if not already set to latest month or if selectedMonth is empty
+			if (!selectedMonth || selectedMonth !== latestMonth) {
+				selectedMonth = latestMonth;
 			}
+		} else {
+			// If no data, default to current month
+			selectedMonth = new Date().toISOString().slice(0, 7);
 		}
 	});
 
@@ -304,14 +312,16 @@
 
 		try {
 			await openingBalanceStore.setMonthOpeningBalance(
-				selectedMonth, 
-				newOpeningBalance, 
-				openingBalanceNote || undefined
+				selectedMonth,
+				newOpeningBalance,
+				openingBalanceNote || undefined,
+				openingBalanceDate || undefined
 			);
-			
+
 			// Reset form
 			newOpeningBalance = 0;
 			openingBalanceNote = '';
+			openingBalanceDate = new Date().toISOString().slice(0, 10);
 			showOpeningBalanceForm = false;
 		} catch (err) {
 			console.error('Failed to set starting balance:', err);
@@ -609,14 +619,14 @@
 	<!-- Opening Balance Form Modal -->
 	<Modal
 		open={showOpeningBalanceForm}
-		title="Set Opening Balance"
+		title="Set Start of Month Balance"
 		size="sm"
 		onclose={() => showOpeningBalanceForm = false}
 	>
 		<div class="space-y-4">
 			<div>
 				<label for="opening-balance" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
-					Opening Balance Amount
+					Start of Month Balance Amount
 				</label>
 				<input
 					id="opening-balance"
@@ -624,6 +634,20 @@
 					bind:value={newOpeningBalance}
 					placeholder="0.00"
 					onkeydown={handleAmountKeydown}
+					class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+				/>
+			</div>
+
+			<div>
+				<label for="opening-balance-date" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
+					Date
+				</label>
+				<input
+					id="opening-balance-date"
+					type="date"
+					bind:value={openingBalanceDate}
+					required
 					class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
 					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 				/>

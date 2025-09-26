@@ -136,7 +136,7 @@
 {:else}
 	<div class="flex flex-col min-h-screen transition-colors duration-300" style="background: var(--color-bg-secondary);">
 		<!-- Header -->
-		<header class="bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
+		<header class="sticky top-0 z-40 bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between py-6">
 					<h1 class="text-2xl font-bold text-white flex items-center">

@@ -34,7 +34,6 @@
 
 	const openingBalanceAmount = $derived(openingBalance?.balance || 0);
 	const endingBalance = $derived(openingBalanceAmount + monthlyIncome - monthlyExpenses);
-	const netAmount = $derived(monthlyIncome - monthlyExpenses);
 
 	const monthName = $derived(formatMonthYear(month));
 </script>
@@ -48,10 +47,10 @@
 	{:else}
 		<div class="space-y-4">
 			<!-- Opening Balance -->
-			<div class="flex justify-between items-center py-2 border-b" style="border-color: var(--color-border-secondary);">
-				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Opening Balance</span>
+			<div class="flex justify-between items-center py-3 border-b-2" style="border-color: var(--color-border-primary);">
+				<span class="text-base font-semibold" style="color: var(--color-text-primary);">Start of month balance</span>
 				<div class="flex items-center gap-2">
-					<span class="text-sm font-semibold" style="color: var(--color-text-primary);">
+					<span class="text-lg font-bold" style="color: var(--color-text-primary);">
 						{formatCurrency(openingBalanceAmount)}
 					</span>
 					{#if onSetOpeningBalance}
@@ -59,8 +58,8 @@
 							type="button"
 							onclick={onSetOpeningBalance}
 							class="p-1 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/20 transition-colors"
-							title="Set Opening Balance"
-							aria-label="Set Opening Balance"
+							title="Set Start of Month Balance"
+							aria-label="Set Start of Month Balance"
 						>
 							<svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -88,7 +87,7 @@
 
 			<!-- Ending Balance -->
 			<div class="flex justify-between items-center py-3 border-t-2" style="border-color: var(--color-border-primary);">
-				<span class="text-base font-semibold" style="color: var(--color-text-primary);">Ending Balance</span>
+				<span class="text-base font-semibold" style="color: var(--color-text-primary);">End of month balance</span>
 				<span class="text-lg font-bold" style="color: {endingBalance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
 					{formatCurrency(endingBalance)}
 				</span>

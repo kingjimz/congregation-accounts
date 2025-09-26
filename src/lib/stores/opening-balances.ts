@@ -42,12 +42,12 @@ export const openingBalanceStore = {
 	},
 
 	// Set opening balance for a month
-	async setMonthOpeningBalance(month: string, balance: number, note?: string) {
+	async setMonthOpeningBalance(month: string, balance: number, note?: string, date?: string) {
 		loading.set(true);
 		error.set(null);
-		
+
 		try {
-			await setOpeningBalance(month, balance, note);
+			await setOpeningBalance(month, balance, note, date);
 			// Reload opening balances to update the store
 			await this.loadOpeningBalances();
 			return true;
