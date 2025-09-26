@@ -47,9 +47,9 @@
 </script>
 
 {#if open}
-	<!-- Backdrop -->
-	<div 
-		class="fixed inset-0 z-50 overflow-y-auto"
+	<!-- Backdrop with blur -->
+	<div
+		class="fixed inset-0 z-50 overflow-y-auto modal-backdrop"
 		onclick={handleBackdropClick}
 		onkeydown={handleKeydown}
 		role="dialog"
@@ -57,10 +57,11 @@
 		tabindex="-1"
 	>
 		<div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-			<div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-			
+			<!-- Blurred backdrop -->
+			<div class="fixed inset-0 backdrop-blur-md bg-black/20 transition-all"></div>
+
 			<!-- Modal panel -->
-			<div class="relative transform overflow-hidden rounded-lg text-left shadow-xl transition-all sm:my-8 sm:w-full {sizeClasses[size]}" style="background: var(--color-surface-elevated);">
+			<div class="relative transform overflow-hidden rounded-lg text-left shadow-2xl transition-all sm:my-8 sm:w-full {sizeClasses[size]}" style="background: var(--color-surface-elevated);">
 				<!-- Header -->
 				{#if title}
 					<div class="border-b px-6 py-4" style="border-color: var(--color-border-primary);">
@@ -96,3 +97,25 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.modal-backdrop {
+		animation: fadeIn 0.2s ease-out;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	/* Fallback for browsers that don't support backdrop-filter */
+	@supports not (backdrop-filter: blur(12px)) {
+		.modal-backdrop > div:first-child {
+			background: rgba(0, 0, 0, 0.5) !important;
+		}
+	}
+</style>

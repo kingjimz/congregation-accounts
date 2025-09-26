@@ -13,9 +13,10 @@
 		step?: number;
 		onchange?: (value: string | number) => void;
 		oninput?: (value: string | number) => void;
+		onkeydown?: (event: KeyboardEvent) => void;
 	}
 
-	let { 
+	let {
 		type = 'text',
 		value = '',
 		placeholder = '',
@@ -28,7 +29,8 @@
 		max,
 		step,
 		onchange,
-		oninput
+		oninput,
+		onkeydown
 	}: Props = $props();
 
 	const baseClasses = 'block w-full rounded-lg border px-3 py-2 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm';
@@ -74,6 +76,7 @@
 	style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 	oninput={handleInput}
 	onchange={handleChange}
+	{onkeydown}
 />
 
 {#if error}

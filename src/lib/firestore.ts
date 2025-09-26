@@ -180,7 +180,7 @@ export async function getUniqueCategories(): Promise<string[]> {
 // Opening Balance Functions
 
 // Add or update opening balance for a month
-export async function setOpeningBalance(month: string, balance: number, note?: string) {
+export async function setOpeningBalance(month: string, balance: number, note?: string, date?: string) {
 	try {
 		// Check if opening balance already exists for this month
 		const q = query(
@@ -188,13 +188,14 @@ export async function setOpeningBalance(month: string, balance: number, note?: s
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		if (!querySnapshot.empty) {
 			// Update existing opening balance
 			const docRef = querySnapshot.docs[0].ref;
 			await updateDoc(docRef, {
 				balance,
 				note: note || '',
+				createdAt: date ? Timestamp.fromDate(new Date(date)) : undefined,
 				updatedAt: Timestamp.now()
 			});
 			return querySnapshot.docs[0].id;
@@ -204,7 +205,7 @@ export async function setOpeningBalance(month: string, balance: number, note?: s
 				month,
 				balance,
 				note: note || '',
-				createdAt: Timestamp.now(),
+				createdAt: date ? Timestamp.fromDate(new Date(date)) : Timestamp.now(),
 				updatedAt: Timestamp.now()
 			});
 			return docRef.id;

@@ -113,8 +113,36 @@
 	}
 
 	function updateAmount(value: string | number) {
-		formData.amount = Number(value);
+		// Parse the input as a number, handling empty string
+		const strValue = String(value);
+		const numValue = strValue === '' ? 0 : Number(strValue);
+		formData.amount = isNaN(numValue) ? 0 : numValue;
 		clearFieldError('amount');
+	}
+
+	function handleAmountKeydown(event: KeyboardEvent) {
+		// Allow: backspace, delete, tab, escape, enter
+		if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
+			// Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+			(event.keyCode === 65 && event.ctrlKey === true) ||
+			(event.keyCode === 67 && event.ctrlKey === true) ||
+			(event.keyCode === 86 && event.ctrlKey === true) ||
+			(event.keyCode === 88 && event.ctrlKey === true) ||
+			// Allow: home, end, left, right
+			(event.keyCode >= 35 && event.keyCode <= 39)) {
+			// let it happen, don't do anything
+			return;
+		}
+
+		// Allow decimal point
+		if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) {
+			return;
+		}
+
+		// Ensure that it is a number and stop the keypress
+		if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && (event.keyCode < 96 || event.keyCode > 105)) {
+			event.preventDefault();
+		}
 	}
 
 	function updateDate(value: string | number) {
@@ -188,15 +216,15 @@
 
 		<!-- Amount -->
 		<Input
-			type="number"
+			type="text"
 			label="Amount"
-			value={formData.amount}
+			value={formData.amount || ''}
 			placeholder="0.00"
-			step={0.01}
 			required
 			disabled={loading}
 			error={errors.amount}
 			oninput={updateAmount}
+			onkeydown={handleAmountKeydown}
 		/>
 
 		<!-- Date -->

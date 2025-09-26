@@ -21,12 +21,14 @@
 		change: { month: string };
 	}>();
 
-	// Convert months to options for select component
+	// Convert months to options for select component (sorted latest first)
 	const monthOptions = $derived(
-		availableMonths.map(month => ({
-			value: month,
-			label: formatMonthYear(month)
-		}))
+		[...availableMonths]
+			.sort((a, b) => b.localeCompare(a)) // Sort latest first
+			.map(month => ({
+				value: month,
+				label: formatMonthYear(month)
+			}))
 	);
 
 	function handleMonthChange(month: string) {
