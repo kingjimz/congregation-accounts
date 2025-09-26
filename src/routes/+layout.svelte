@@ -171,9 +171,9 @@
 		</main>
 
 		<!-- Bottom Navigation -->
-		<nav class="fixed bottom-0 left-0 right-0 backdrop-blur-lg border-t shadow-lg transition-all duration-300 ease-in-out {showBottomNav ? 'translate-y-0' : 'translate-y-full'}" 
+		<nav class="fixed bottom-0 left-0 right-0 backdrop-blur-lg border-t shadow-lg transition-all duration-300 ease-in-out {showBottomNav ? 'translate-y-0' : 'translate-y-full'}"
 			 style="background: var(--color-glass-bg); border-color: var(--color-border-primary);">
-			<div class="flex justify-center max-w-md mx-auto px-2">
+			<div class="flex justify-center max-w-lg mx-auto px-2">
 				<a
 					href="/"
 					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/') ? 'text-indigo-600' : ''}"
@@ -184,6 +184,19 @@
 					</svg>
 					<span class="text-xs font-medium {isActive('/') ? 'font-semibold' : ''}">Home</span>
 					{#if isActive('/')}
+						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
+					{/if}
+				</a>
+				<a
+					href="/notes"
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/notes') ? 'text-indigo-600' : ''}"
+					style="color: {isActive('/notes') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/notes') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
+				>
+					<svg class="w-6 h-6 mb-1 {isActive('/notes') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+					</svg>
+					<span class="text-xs font-medium {isActive('/notes') ? 'font-semibold' : ''}">Notes</span>
+					{#if isActive('/notes')}
 						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
 					{/if}
 				</a>
