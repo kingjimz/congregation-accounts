@@ -78,13 +78,6 @@
 			</button>
 		</form>
 
-		<div class="auth-footer">
-			<p>Don't have an account? 
-				<button type="button" class="link-btn" on:click={handleSignUpClick}>
-					Sign up here
-				</button>
-			</p>
-		</div>
 	</div>
 </div>
 
@@ -212,30 +205,4 @@
 		to { transform: rotate(360deg); }
 	}
 
-	.auth-footer {
-		text-align: center;
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid #e5e7eb;
-	}
-
-	.auth-footer p {
-		margin: 0;
-		color: #64748b;
-		font-size: 0.875rem;
-	}
-
-	.link-btn {
-		background: none;
-		border: none;
-		color: #2563eb;
-		font-weight: 500;
-		cursor: pointer;
-		text-decoration: underline;
-		font-size: inherit;
-	}
-
-	.link-btn:hover {
-		color: #1d4ed8;
-	}
 </style>
