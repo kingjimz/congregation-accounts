@@ -201,6 +201,19 @@
 					{/if}
 				</a>
 				<a
+					href="/khoc"
+					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/khoc') ? 'text-indigo-600' : ''}"
+					style="color: {isActive('/khoc') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/khoc') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"
+				>
+					<svg class="w-6 h-6 mb-1 {isActive('/khoc') ? 'stroke-2' : 'stroke-1.5'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+					</svg>
+					<span class="text-xs font-medium {isActive('/khoc') ? 'font-semibold' : ''}">KHOC</span>
+					{#if isActive('/khoc')}
+						<div class="w-4 h-0.5 bg-indigo-600 rounded-full mt-1"></div>
+					{/if}
+				</a>
+				<a
 					href="/settings"
 					class="flex-1 flex flex-col items-center py-3 px-3 rounded-lg mx-1 transition-all duration-200 {isActive('/settings') ? 'text-indigo-600' : ''}"
 					style="color: {isActive('/settings') ? '#4f46e5' : 'var(--color-text-secondary)'}; background: {isActive('/settings') ? 'rgba(79, 70, 229, 0.1)' : 'transparent'};"

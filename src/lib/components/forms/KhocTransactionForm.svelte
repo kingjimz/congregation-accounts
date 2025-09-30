@@ -1,0 +1,276 @@
+<script lang="ts">
+	import { createEventDispatcher } from 'svelte';
+	import { Button, Input, Select } from '$lib/components/ui';
+	import { validateTransaction, getTodayLocalDate } from '$lib/utils';
+	import type { TransactionFormData, ValidationError } from '$lib/types';
+
+	interface Props {
+		loading?: boolean;
+		initialData?: Partial<TransactionFormData>;
+		onsubmit?: (data: TransactionFormData) => void;
+		oncancel?: () => void;
+	}
+
+	let {
+		loading = false,
+		initialData = {},
+		onsubmit,
+		oncancel
+	}: Props = $props();
+
+	const dispatch = createEventDispatcher<{
+		submit: TransactionFormData;
+		cancel: void;
+	}>();
+
+	// KHOC-specific income categories
+	const KHOC_INCOME_CATEGORIES = [
+		'ESP',
+		'BOL'
+	] as const;
+
+	// KHOC-specific expense categories
+	const KHOC_EXPENSE_CATEGORIES = [
+		'KHOC Expenses'
+	] as const;
+
+	// KHOC-specific donation descriptions
+	const KHOC_DONATION_DESCRIPTIONS = [
+		'ESPERANZA CONGREGATION',
+		'BOLAOEN CONGREGATION'
+	] as const;
+
+	// Form state
+	let formData: TransactionFormData = $state({
+		description: initialData.description || '',
+		category: initialData.category || '',
+		amount: initialData.amount || 0,
+		type: initialData.type || 'income',
+		date: initialData.date || getTodayLocalDate()
+	});
+
+	let errors: Record<string, string> = $state({});
+
+	// Get available categories based on transaction type
+	const availableCategories = $derived(
+		formData.type === 'income' ? KHOC_INCOME_CATEGORIES : KHOC_EXPENSE_CATEGORIES
+	);
+
+	// Convert categories to options for select component
+	const categoryOptions = $derived(
+		availableCategories.map(category => ({
+			value: category,
+			label: category
+		}))
+	);
+
+	// Convert donation descriptions to options for select component
+	const descriptionOptions = $derived(
+		KHOC_DONATION_DESCRIPTIONS.map(description => ({
+			value: description,
+			label: description
+		}))
+	);
+
+	// Reset category when type changes if it's not valid for the new type
+	$effect(() => {
+		if (formData.type === 'income' && !KHOC_INCOME_CATEGORIES.includes(formData.category as any)) {
+			formData.category = '';
+		} else if (formData.type === 'expense' && !KHOC_EXPENSE_CATEGORIES.includes(formData.category as any)) {
+			formData.category = '';
+		}
+	});
+
+	function handleSubmit() {
+		// Ensure date is set
+		if (!formData.date) {
+			formData.date = getTodayLocalDate();
+		}
+
+		// Validate form
+		const validation = validateTransaction(formData);
+
+		if (!validation.isValid) {
+			// Convert validation errors to error object
+			errors = validation.errors.reduce((acc, error) => {
+				acc[error.field] = error.message;
+				return acc;
+			}, {} as Record<string, string>);
+			return;
+		}
+
+		// Clear errors and submit
+		errors = {};
+		onsubmit?.(formData);
+		dispatch('submit', formData);
+	}
+
+	function handleCancel() {
+		oncancel?.();
+		dispatch('cancel');
+	}
+
+	function clearFieldError(field: string) {
+		if (errors[field]) {
+			errors = { ...errors };
+			delete errors[field];
+		}
+	}
+
+	// Handle input changes
+	function updateCategory(value: string) {
+		formData.category = value;
+		clearFieldError('category');
+	}
+
+	function updateDescription(value: string | number) {
+		formData.description = String(value);
+		clearFieldError('description');
+	}
+
+	function updateAmount(value: string | number) {
+		// Parse the input as a number, handling empty string
+		const strValue = String(value);
+		const numValue = strValue === '' ? 0 : Number(strValue);
+		formData.amount = isNaN(numValue) ? 0 : numValue;
+		clearFieldError('amount');
+	}
+
+	function handleAmountKeydown(event: KeyboardEvent) {
+		// Allow: backspace, delete, tab, escape, enter
+		if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
+			// Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+			(event.keyCode === 65 && event.ctrlKey === true) ||
+			(event.keyCode === 67 && event.ctrlKey === true) ||
+			(event.keyCode === 86 && event.ctrlKey === true) ||
+			(event.keyCode === 88 && event.ctrlKey === true) ||
+			// Allow: home, end, left, right
+			(event.keyCode >= 35 && event.keyCode <= 39)) {
+			// let it happen, don't do anything
+			return;
+		}
+
+		// Allow decimal point
+		if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) {
+			return;
+		}
+
+		// Ensure that it is a number and stop the keypress
+		if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && (event.keyCode < 96 || event.keyCode > 105)) {
+			event.preventDefault();
+		}
+	}
+
+	function updateDate(value: string | number) {
+		formData.date = String(value);
+		clearFieldError('date');
+	}
+</script>
+
+<div class="space-y-4">
+	<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
+		<!-- Transaction Type -->
+		<div class="grid grid-cols-2 gap-4">
+			<label class="flex items-center">
+				<input
+					type="radio"
+					bind:group={formData.type}
+					value="income"
+					class="mr-2"
+					disabled={loading}
+				/>
+				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
+			</label>
+			<label class="flex items-center">
+				<input
+					type="radio"
+					bind:group={formData.type}
+					value="expense"
+					class="mr-2"
+					disabled={loading}
+				/>
+				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Expense</span>
+			</label>
+		</div>
+
+		<!-- Category -->
+		<Select
+			label="Category"
+			value={formData.category}
+			options={categoryOptions}
+			placeholder="Select a category..."
+			required
+			disabled={loading}
+			error={errors.category}
+			onchange={updateCategory}
+		/>
+
+		<!-- Description -->
+		{#if formData.type === 'income'}
+			<Select
+				label="Description"
+				value={formData.description}
+				options={descriptionOptions}
+				placeholder="Select a description..."
+				required
+				disabled={loading}
+				error={errors.description}
+				onchange={updateDescription}
+			/>
+		{:else}
+			<Input
+				type="text"
+				label="Description"
+				value={formData.description}
+				placeholder="Enter expense description..."
+				required
+				disabled={loading}
+				error={errors.description}
+				oninput={updateDescription}
+			/>
+		{/if}
+
+		<!-- Amount -->
+		<Input
+			type="text"
+			label="Amount"
+			value={formData.amount || ''}
+			placeholder="0.00"
+			required
+			disabled={loading}
+			error={errors.amount}
+			oninput={updateAmount}
+			onkeydown={handleAmountKeydown}
+		/>
+
+		<!-- Date -->
+		<Input
+			type="date"
+			label="Date"
+			value={formData.date}
+			required
+			disabled={loading}
+			error={errors.date}
+			onchange={updateDate}
+		/>
+
+		<!-- Actions -->
+		<div class="flex justify-end space-x-3 pt-4">
+			<Button
+				variant="secondary"
+				onclick={handleCancel}
+				disabled={loading}
+			>
+				Cancel
+			</Button>
+			<Button
+				type="submit"
+				variant="primary"
+				loading={loading}
+				disabled={loading}
+			>
+				Add Transaction
+			</Button>
+		</div>
+	</form>
+</div>

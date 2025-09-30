@@ -25,6 +25,9 @@
 	let itemsPerPage = $state(10);
 	let totalPages = $state(1);
 
+	// Filter state
+	let transactionFilter = $state<'all' | 'income' | 'expense'>('all');
+
 	// Opening balance form state
 	let newOpeningBalance = $state(0);
 	let openingBalanceNote = $state('');
@@ -52,8 +55,14 @@
 		return TransactionService.getMonthlyData(selectedMonth, $transactions, $openingBalances);
 	});
 
-	// Get all transactions for display
-	const allTransactions = $derived(monthlyData().transactions);
+	// Get all transactions for display with filter applied
+	const allTransactions = $derived(() => {
+		const transactions = monthlyData().transactions;
+		if (transactionFilter === 'all') {
+			return transactions;
+		}
+		return transactions.filter(t => t.type === transactionFilter);
+	});
 
 	// Categories for classification - matching the actual categories from constants
 	const LOCAL_CONGREGATION_CATEGORIES = [
@@ -77,21 +86,22 @@
 		return category.toLowerCase().includes('worldwide work');
 	}
 
-	// Calculate category totals
+	// Calculate category totals (always use unfiltered data for totals)
 	const categoryTotals = $derived(() => {
-		const localDonations = allTransactions
+		const unfilteredTransactions = monthlyData().transactions;
+		const localDonations = unfilteredTransactions
 			.filter(t => t.type === 'income' && isLocalCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
-		const localExpenses = allTransactions
+		const localExpenses = unfilteredTransactions
 			.filter(t => t.type === 'expense' && isLocalCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
-		const worldwideDonations = allTransactions
+		const worldwideDonations = unfilteredTransactions
 			.filter(t => t.type === 'income' && isWorldwideCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
-		const worldwideExpenses = allTransactions
+		const worldwideExpenses = unfilteredTransactions
 			.filter(t => t.type === 'expense' && isWorldwideCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
@@ -115,7 +125,7 @@
 
 	// Calculate pagination values
 	$effect(() => {
-		totalPages = Math.ceil(allTransactions.length / itemsPerPage) || 1;
+		totalPages = Math.ceil(allTransactions().length / itemsPerPage) || 1;
 		// Reset to first page when month changes or if current page exceeds total pages
 		if (currentPage > totalPages) {
 			currentPage = 1;
@@ -126,7 +136,7 @@
 	const paginatedTransactions = $derived(() => {
 		const startIndex = (currentPage - 1) * itemsPerPage;
 		const endIndex = startIndex + itemsPerPage;
-		return allTransactions.slice(startIndex, endIndex);
+		return allTransactions().slice(startIndex, endIndex);
 	});
 
 	// Pagination helpers
@@ -412,7 +422,7 @@
 						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
 							<div class="mb-3">
 								<h4 class="font-medium" style="color: var(--color-text-primary);">
-									🏛️ Local Congregation
+									Local Congregation
 								</h4>
 							</div>
 							<div class="space-y-2">
@@ -443,7 +453,7 @@
 						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
 							<div class="mb-3">
 								<h4 class="font-medium" style="color: var(--color-text-primary);">
-									🌍 Worldwide Work
+									Worldwide Work
 								</h4>
 							</div>
 							<div class="space-y-2">
@@ -469,41 +479,37 @@
 								</div>
 							</div>
 						</div>
-
-						<!-- Overall Summary -->
-						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary); border: 2px solid var(--color-border-primary);">
-							<h4 class="font-semibold mb-3" style="color: var(--color-text-primary);">
-								📊 Overall Summary
-							</h4>
-							<div class="space-y-2">
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Total Donations</span>
-									<span class="text-sm font-semibold" style="color: var(--color-success);">
-										+₱{categoryTotals().total.donations.toFixed(2)}
-									</span>
-								</div>
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Total Expenses</span>
-									<span class="text-sm font-semibold" style="color: var(--color-error);">
-										-₱{categoryTotals().total.expenses.toFixed(2)}
-									</span>
-								</div>
-								<div class="pt-3 mt-3 border-t-2" style="border-color: var(--color-border-primary);">
-									<div class="flex justify-between items-center">
-										<span class="text-base font-semibold" style="color: var(--color-text-primary);">Net Balance</span>
-										<span class="text-lg font-bold" style="color: {(categoryTotals().total.donations - categoryTotals().total.expenses) >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
-											₱{(categoryTotals().total.donations - categoryTotals().total.expenses).toFixed(2)}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
 					</div>
 				</Card>
 			</div>
 
 			<!-- All Transactions -->
 			<div class="lg:col-span-2">
+				<!-- Filter Buttons -->
+				<div class="mb-4 flex gap-2">
+					<button
+						onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
+						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+						style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+					>
+						All
+					</button>
+					<button
+						onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
+						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+						style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+					>
+						Donations
+					</button>
+					<button
+						onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
+						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+						style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+					>
+						Expenses
+					</button>
+				</div>
+
 				<TransactionList
 					transactions={paginatedTransactions()}
 					title="All Transactions"
@@ -517,7 +523,7 @@
 					<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
 						<!-- Page Info -->
 						<div class="text-sm" style="color: var(--color-text-secondary);">
-							Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allTransactions.length)} of {allTransactions.length} transactions
+							Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length} transactions
 						</div>
 
 						<!-- Page Navigation -->

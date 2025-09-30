@@ -1,0 +1,823 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { khocTransactions, khocLoading, khocError, khocTransactionStore } from '$lib/stores/khoc-transactions';
+	import { khocOpeningBalances, khocOpeningBalanceStore } from '$lib/stores/khoc-opening-balances';
+	import { Alert, Button, Modal, Card } from '$lib/components/ui';
+	import KhocTransactionForm from '$lib/components/forms/KhocTransactionForm.svelte';
+	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
+	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
+	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
+	import { TransactionService } from '$lib/services/TransactionService';
+	import type { TransactionFormData, Transaction } from '$lib/types';
+
+	let username = $state('');
+	let password = $state('');
+	let isAuthenticated = $state(false);
+	let showError = $state(false);
+	let errorMessage = $state('');
+
+	const KHOC_USERNAME = 'accounts.servant@khoc.com';
+	const KHOC_PASSWORD = 'khocaccounts';
+
+	// UI state
+	let showTransactionForm = $state(false);
+	let showOpeningBalanceForm = $state(false);
+	let showEditTransactionForm = $state(false);
+	let showDeleteConfirmation = $state(false);
+	let submitting = $state(false);
+	let selectedMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+	let editingTransaction = $state<Transaction | null>(null);
+	let deletingTransactionId = $state<string | null>(null);
+
+	// Pagination state
+	let currentPage = $state(1);
+	let itemsPerPage = $state(10);
+	let totalPages = $state(1);
+
+	// Filter state
+	let transactionFilter = $state<'all' | 'income' | 'expense'>('all');
+
+	// Opening balance form state
+	let newOpeningBalance = $state(0);
+	let openingBalanceNote = $state('');
+	let openingBalanceDate = $state(new Date().toISOString().slice(0, 10));
+
+	onMount(async () => {
+		// Check if already authenticated in this session
+		isAuthenticated = sessionStorage.getItem('khoc_authenticated') === 'true';
+
+		if (isAuthenticated) {
+			console.log('KHOC Dashboard loaded for authenticated user');
+			await Promise.all([
+				khocTransactionStore.loadTransactions(),
+				khocOpeningBalanceStore.loadOpeningBalances()
+			]);
+		}
+	});
+
+	// Get monthly data for selected month
+	const monthlyData = $derived(() => {
+		if (selectedMonth === '') {
+			// Show all transactions
+			return {
+				transactions: [...$khocTransactions].sort((a, b) => b.date.localeCompare(a.date)),
+				openingBalance: 0
+			};
+		}
+		return TransactionService.getMonthlyData(selectedMonth, $khocTransactions, $khocOpeningBalances);
+	});
+
+	// Get all transactions for display with filter applied
+	const allTransactions = $derived(() => {
+		const transactions = monthlyData().transactions;
+		if (transactionFilter === 'all') {
+			return transactions;
+		}
+		return transactions.filter(t => t.type === transactionFilter);
+	});
+
+	// Helper functions for category classification
+	function isEsperanzaCategory(category: string): boolean {
+		return category.toLowerCase() === 'esp';
+	}
+
+	function isBolaoenCategory(category: string): boolean {
+		return category.toLowerCase() === 'bol';
+	}
+
+	// Calculate category totals (always use unfiltered data for totals)
+	const categoryTotals = $derived(() => {
+		const unfilteredTransactions = monthlyData().transactions;
+		const esperanzaDonations = unfilteredTransactions
+			.filter(t => t.type === 'income' && isEsperanzaCategory(t.category))
+			.reduce((sum, t) => sum + t.amount, 0);
+
+		const bolaoenDonations = unfilteredTransactions
+			.filter(t => t.type === 'income' && isBolaoenCategory(t.category))
+			.reduce((sum, t) => sum + t.amount, 0);
+
+		const totalExpenses = unfilteredTransactions
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + t.amount, 0);
+
+		return {
+			esperanza: {
+				donations: esperanzaDonations,
+				balance: esperanzaDonations
+			},
+			bolaoen: {
+				donations: bolaoenDonations,
+				balance: bolaoenDonations
+			},
+			total: {
+				donations: esperanzaDonations + bolaoenDonations,
+				expenses: totalExpenses
+			}
+		};
+	});
+
+	// Calculate pagination values
+	$effect(() => {
+		totalPages = Math.ceil(allTransactions().length / itemsPerPage) || 1;
+		if (currentPage > totalPages) {
+			currentPage = 1;
+		}
+	});
+
+	// Get paginated transactions
+	const paginatedTransactions = $derived(() => {
+		const startIndex = (currentPage - 1) * itemsPerPage;
+		const endIndex = startIndex + itemsPerPage;
+		return allTransactions().slice(startIndex, endIndex);
+	});
+
+	// Pagination helpers
+	function nextPage() {
+		if (currentPage < totalPages) {
+			currentPage++;
+		}
+	}
+
+	function previousPage() {
+		if (currentPage > 1) {
+			currentPage--;
+		}
+	}
+
+	function goToPage(page: number) {
+		if (page >= 1 && page <= totalPages) {
+			currentPage = page;
+		}
+	}
+
+	// Get page numbers to display
+	const pageNumbers = $derived(() => {
+		const pages: number[] = [];
+		const maxVisible = 5;
+
+		if (totalPages <= maxVisible) {
+			for (let i = 1; i <= totalPages; i++) {
+				pages.push(i);
+			}
+		} else {
+			if (currentPage <= 3) {
+				for (let i = 1; i <= 4; i++) {
+					pages.push(i);
+				}
+				pages.push(-1);
+				pages.push(totalPages);
+			} else if (currentPage >= totalPages - 2) {
+				pages.push(1);
+				pages.push(-1);
+				for (let i = totalPages - 3; i <= totalPages; i++) {
+					pages.push(i);
+				}
+			} else {
+				pages.push(1);
+				pages.push(-1);
+				for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+					pages.push(i);
+				}
+				pages.push(-1);
+				pages.push(totalPages);
+			}
+		}
+
+		return pages;
+	});
+
+	// Reset page when month changes
+	$effect(() => {
+		selectedMonth;
+		currentPage = 1;
+	});
+
+	// Event handlers
+	async function handleTransactionSubmit(data: TransactionFormData) {
+		submitting = true;
+		try {
+			const transactionData = {
+				...data,
+				date: data.date || new Date().toISOString().split('T')[0]
+			};
+			await khocTransactionStore.addTransaction(transactionData);
+			showTransactionForm = false;
+
+			const transactionMonth = transactionData.date.substring(0, 7);
+			if (transactionMonth !== selectedMonth) {
+				selectedMonth = transactionMonth;
+			}
+
+			currentPage = 1;
+		} catch (err) {
+			console.error('Failed to add KHOC transaction:', err);
+		} finally {
+			submitting = false;
+		}
+	}
+
+	function handleDeleteTransaction(event: { id: string }) {
+		deletingTransactionId = event.id;
+		showDeleteConfirmation = true;
+	}
+
+	async function confirmDelete() {
+		if (!deletingTransactionId) return;
+
+		submitting = true;
+		try {
+			await khocTransactionStore.deleteTransaction(deletingTransactionId);
+			const newTotal = allTransactions.length - 1;
+			const newTotalPages = Math.ceil(newTotal / itemsPerPage) || 1;
+			if (currentPage > newTotalPages) {
+				currentPage = newTotalPages;
+			}
+			showDeleteConfirmation = false;
+			deletingTransactionId = null;
+		} catch (err) {
+			console.error('Failed to delete KHOC transaction:', err);
+			alert('Failed to delete transaction. Please try again.');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	function cancelDelete() {
+		showDeleteConfirmation = false;
+		deletingTransactionId = null;
+	}
+
+	function handleEditTransaction(event: { transaction: Transaction }) {
+		editingTransaction = event.transaction;
+		showEditTransactionForm = true;
+	}
+
+	async function handleUpdateTransaction(data: TransactionFormData) {
+		if (!editingTransaction?.id) return;
+
+		submitting = true;
+		try {
+			const transactionData = {
+				...data,
+				date: data.date || new Date().toISOString().split('T')[0]
+			};
+			await khocTransactionStore.updateTransaction(editingTransaction.id, transactionData);
+			showEditTransactionForm = false;
+			editingTransaction = null;
+
+			const transactionMonth = transactionData.date.substring(0, 7);
+			if (transactionMonth !== selectedMonth) {
+				selectedMonth = transactionMonth;
+				currentPage = 1;
+			}
+		} catch (err) {
+			console.error('Failed to update KHOC transaction:', err);
+			alert('Failed to update transaction. Please try again.');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	function handleMonthChange(month: string) {
+		selectedMonth = month;
+	}
+
+	async function handleSetOpeningBalance() {
+		const balanceAmount = Number(newOpeningBalance);
+
+		if (isNaN(balanceAmount) || balanceAmount < 0) {
+			alert('Please enter a valid starting balance');
+			return;
+		}
+
+		try {
+			await khocOpeningBalanceStore.setMonthOpeningBalance(
+				selectedMonth,
+				balanceAmount,
+				openingBalanceNote || undefined,
+				openingBalanceDate || undefined
+			);
+
+			newOpeningBalance = 0;
+			openingBalanceNote = '';
+			openingBalanceDate = new Date().toISOString().slice(0, 10);
+			showOpeningBalanceForm = false;
+		} catch (err) {
+			console.error('Failed to set KHOC starting balance:', err);
+			alert('Failed to set starting balance. Please try again.');
+		}
+	}
+
+	function handleDismissError() {
+		khocTransactionStore.clearError();
+	}
+
+	function handleAmountKeydown(event: KeyboardEvent) {
+		if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
+			(event.keyCode === 65 && event.ctrlKey === true) ||
+			(event.keyCode === 67 && event.ctrlKey === true) ||
+			(event.keyCode === 86 && event.ctrlKey === true) ||
+			(event.keyCode === 88 && event.ctrlKey === true) ||
+			(event.keyCode >= 35 && event.keyCode <= 39)) {
+			return;
+		}
+
+		if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) {
+			return;
+		}
+
+		if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && (event.keyCode < 96 || event.keyCode > 105)) {
+			event.preventDefault();
+		}
+	}
+
+	function handleLogin() {
+		showError = false;
+
+		if (username === KHOC_USERNAME && password === KHOC_PASSWORD) {
+			isAuthenticated = true;
+			sessionStorage.setItem('khoc_authenticated', 'true');
+
+			// Load data after authentication
+			Promise.all([
+				khocTransactionStore.loadTransactions(),
+				khocOpeningBalanceStore.loadOpeningBalances()
+			]);
+		} else {
+			showError = true;
+			errorMessage = 'Invalid username or password';
+			password = '';
+		}
+	}
+
+	function handleLogout() {
+		isAuthenticated = false;
+		sessionStorage.removeItem('khoc_authenticated');
+		username = '';
+		password = '';
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			handleLogin();
+		}
+	}
+</script>
+
+<svelte:head>
+	<title>KHOC - Congregation Accounts</title>
+</svelte:head>
+
+{#if !isAuthenticated}
+	<div class="fixed inset-0 flex items-center justify-center" style="background: var(--color-bg-secondary);">
+		<div class="w-full max-w-md px-4">
+			<div class="rounded-lg shadow-lg p-8" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+				<div class="text-center mb-8">
+					<div class="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+						</svg>
+					</div>
+					<h2 class="text-2xl font-bold mb-2" style="color: var(--color-text-primary);">KHOC Access</h2>
+					<p class="text-sm" style="color: var(--color-text-secondary);">Enter your credentials to access KHOC</p>
+				</div>
+
+				{#if showError}
+					<div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200">
+						<p class="text-red-700 text-sm">{errorMessage}</p>
+					</div>
+				{/if}
+
+				<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-6">
+					<div>
+						<label for="username" class="block text-sm font-medium mb-2" style="color: var(--color-text-primary);">
+							Username
+						</label>
+						<input
+							id="username"
+							type="email"
+							bind:value={username}
+							onkeydown={handleKeydown}
+							class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+							style="background: var(--color-bg-secondary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+							placeholder="accounts.servant@khoc.com"
+							required
+						/>
+					</div>
+
+					<div>
+						<label for="password" class="block text-sm font-medium mb-2" style="color: var(--color-text-primary);">
+							Password
+						</label>
+						<input
+							id="password"
+							type="password"
+							bind:value={password}
+							onkeydown={handleKeydown}
+							class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+							style="background: var(--color-bg-secondary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+							placeholder="Enter password"
+							required
+						/>
+					</div>
+
+					<button
+						type="submit"
+						class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+					>
+						Access KHOC
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+{:else}
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8" style="background: var(--color-bg-secondary); min-height: 100vh;">
+		<!-- Error Alert -->
+		{#if $khocError}
+			<Alert
+				variant="error"
+				message={$khocError}
+				dismissible
+				ondismiss={handleDismissError}
+			/>
+		{/if}
+
+		<!-- Loading State -->
+		{#if $khocLoading}
+			<Card>
+				<div class="flex items-center justify-center py-12">
+					<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+					<span class="ml-3" style="color: var(--color-text-secondary);">Loading KHOC transactions...</span>
+				</div>
+			</Card>
+		{:else}
+			<!-- Header with Actions -->
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				<div>
+					<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">KHOC Financial Dashboard</h1>
+					<p style="color: var(--color-text-secondary);">Kingdom Hall Operations Center - Financial Management</p>
+				</div>
+				<div class="flex gap-2">
+					<Button
+						variant="primary"
+						onclick={() => showTransactionForm = true}
+					>
+						Add Transaction
+					</Button>
+					<button
+						onclick={handleLogout}
+						class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+						</svg>
+						<span>Logout</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- Month Picker -->
+			<MonthPicker
+				value={selectedMonth}
+				loading={$khocLoading}
+				onchange={handleMonthChange}
+				showAll={true}
+			/>
+
+			<!-- Main Content Grid -->
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<!-- Left Column -->
+				<div class="lg:col-span-1 space-y-6">
+					<!-- Monthly Balance Card -->
+					<MonthlyBalance
+						month={selectedMonth || 'All'}
+						transactions={monthlyData().transactions}
+						openingBalance={monthlyData().openingBalance}
+						onSetOpeningBalance={() => showOpeningBalanceForm = true}
+					/>
+
+					<!-- Category Breakdown -->
+					<Card title="Category Breakdown">
+						<div class="space-y-4">
+							<!-- ESPERANZA Congregation -->
+							<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
+								<div class="mb-3">
+									<h4 class="font-medium" style="color: var(--color-text-primary);">
+										ESPERANZA Congregation
+									</h4>
+								</div>
+								<div class="space-y-2">
+									<div class="flex justify-between items-center">
+										<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
+										<span class="text-sm font-semibold" style="color: var(--color-success);">
+											+₱{categoryTotals().esperanza.donations.toFixed(2)}
+										</span>
+									</div>
+									<div class="pt-2 mt-2 border-t" style="border-color: var(--color-border-secondary);">
+										<div class="flex justify-between items-center">
+											<span class="text-sm font-semibold" style="color: var(--color-text-primary);">Balance</span>
+											<span class="font-bold" style="color: {categoryTotals().esperanza.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
+												₱{categoryTotals().esperanza.balance.toFixed(2)}
+											</span>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- BOLAOEN Congregation -->
+							<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
+								<div class="mb-3">
+									<h4 class="font-medium" style="color: var(--color-text-primary);">
+										BOLAOEN Congregation
+									</h4>
+								</div>
+								<div class="space-y-2">
+									<div class="flex justify-between items-center">
+										<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
+										<span class="text-sm font-semibold" style="color: var(--color-success);">
+											+₱{categoryTotals().bolaoen.donations.toFixed(2)}
+										</span>
+									</div>
+									<div class="pt-2 mt-2 border-t" style="border-color: var(--color-border-secondary);">
+										<div class="flex justify-between items-center">
+											<span class="text-sm font-semibold" style="color: var(--color-text-primary);">Balance</span>
+											<span class="font-bold" style="color: {categoryTotals().bolaoen.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
+												₱{categoryTotals().bolaoen.balance.toFixed(2)}
+											</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</Card>
+				</div>
+
+				<!-- All Transactions -->
+				<div class="lg:col-span-2">
+					<!-- Filter Buttons -->
+					<div class="mb-4 flex gap-2">
+						<button
+							onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
+							class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+							style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+						>
+							All
+						</button>
+						<button
+							onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
+							class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+							style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+						>
+							Donations
+						</button>
+						<button
+							onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
+							class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+							style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+						>
+							Expenses
+						</button>
+					</div>
+
+					<TransactionList
+						transactions={paginatedTransactions()}
+						title="All Transactions"
+						showActions={true}
+						ondelete={handleDeleteTransaction}
+						onedit={handleEditTransaction}
+					/>
+
+					<!-- Pagination Controls -->
+					{#if totalPages > 1}
+						<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+							<!-- Page Info -->
+							<div class="text-sm" style="color: var(--color-text-secondary);">
+								Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length} transactions
+							</div>
+
+							<!-- Page Navigation -->
+							<div class="flex items-center gap-2">
+								<!-- Previous Button -->
+								<button
+									onclick={previousPage}
+									disabled={currentPage === 1}
+									class="px-3 py-1 rounded-lg transition-all duration-200 {currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50'}"
+									style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);"
+									aria-label="Previous page"
+								>
+									<svg class="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+									</svg>
+								</button>
+
+								<!-- Page Numbers -->
+								<div class="flex items-center gap-1">
+									{#each pageNumbers() as pageNum}
+										{#if pageNum === -1}
+											<span class="px-2" style="color: var(--color-text-secondary);">...</span>
+										{:else}
+											<button
+												onclick={() => goToPage(pageNum)}
+												class="min-w-[32px] px-2 py-1 rounded-lg font-medium transition-all duration-200 {currentPage === pageNum ? 'bg-indigo-600 text-white' : 'hover:bg-indigo-50'}"
+												style="{currentPage === pageNum ? '' : 'background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);'}"
+											>
+												{pageNum}
+											</button>
+										{/if}
+									{/each}
+								</div>
+
+								<!-- Next Button -->
+								<button
+									onclick={nextPage}
+									disabled={currentPage === totalPages}
+									class="px-3 py-1 rounded-lg transition-all duration-200 {currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50'}"
+									style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);"
+									aria-label="Next page"
+								>
+									<svg class="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+									</svg>
+								</button>
+							</div>
+
+							<!-- Items per page selector -->
+							<div class="flex items-center gap-2">
+								<label for="items-per-page" class="text-sm" style="color: var(--color-text-secondary);">
+									Show:
+								</label>
+								<select
+									id="items-per-page"
+									bind:value={itemsPerPage}
+									onchange={() => currentPage = 1}
+									class="px-3 py-1 rounded-lg border focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+									style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+								>
+									<option value={5}>5</option>
+									<option value={10}>10</option>
+									<option value={20}>20</option>
+									<option value={50}>50</option>
+									<option value={100}>100</option>
+								</select>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Transaction Form Modal -->
+		<Modal
+			open={showTransactionForm}
+			title="Add New Transaction"
+			size="md"
+			onclose={() => showTransactionForm = false}
+		>
+			<KhocTransactionForm
+				loading={submitting}
+				onsubmit={handleTransactionSubmit}
+				oncancel={() => showTransactionForm = false}
+			/>
+		</Modal>
+
+		<!-- Opening Balance Form Modal -->
+		<Modal
+			open={showOpeningBalanceForm}
+			title="Set Start of Month Balance"
+			size="sm"
+			onclose={() => showOpeningBalanceForm = false}
+		>
+			<div class="space-y-4">
+				<div>
+					<label for="opening-balance" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
+						Start of Month Balance Amount
+					</label>
+					<input
+						id="opening-balance"
+						type="text"
+						bind:value={newOpeningBalance}
+						placeholder="0.00"
+						onkeydown={handleAmountKeydown}
+						class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+					/>
+				</div>
+
+				<div>
+					<label for="opening-balance-date" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
+						Date
+					</label>
+					<input
+						id="opening-balance-date"
+						type="date"
+						bind:value={openingBalanceDate}
+						required
+						class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+					/>
+				</div>
+
+				<div>
+					<label for="opening-balance-note" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
+						Note (Optional)
+					</label>
+					<textarea
+						id="opening-balance-note"
+						bind:value={openingBalanceNote}
+						rows="3"
+						placeholder="Add a note about this starting balance..."
+						class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+						style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+					></textarea>
+				</div>
+
+				<div class="flex justify-end space-x-3 pt-4">
+					<Button
+						variant="secondary"
+						onclick={() => showOpeningBalanceForm = false}
+					>
+						Cancel
+					</Button>
+					<Button
+						variant="primary"
+						onclick={handleSetOpeningBalance}
+					>
+						Set Balance
+					</Button>
+				</div>
+			</div>
+		</Modal>
+
+		<!-- Edit Transaction Form Modal -->
+		<Modal
+			open={showEditTransactionForm}
+			title="Edit Transaction"
+			size="md"
+			onclose={() => {
+				showEditTransactionForm = false;
+				editingTransaction = null;
+			}}
+		>
+			{#if editingTransaction}
+				<KhocTransactionForm
+					loading={submitting}
+					initialData={{
+						date: editingTransaction.date,
+						description: editingTransaction.description,
+						category: editingTransaction.category,
+						amount: editingTransaction.amount,
+						type: editingTransaction.type
+					}}
+					onsubmit={handleUpdateTransaction}
+					oncancel={() => {
+						showEditTransactionForm = false;
+						editingTransaction = null;
+					}}
+				/>
+			{/if}
+		</Modal>
+
+		<!-- Delete Confirmation Modal -->
+		<Modal
+			open={showDeleteConfirmation}
+			title="Delete Transaction"
+			size="sm"
+			onclose={cancelDelete}
+		>
+			<div class="space-y-4">
+				<div class="text-center py-4">
+					<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+						<svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+						</svg>
+					</div>
+					<h3 class="text-lg font-semibold mb-2" style="color: var(--color-text-primary);">
+						Confirm Delete
+					</h3>
+					<p class="text-sm" style="color: var(--color-text-secondary);">
+						Are you sure you want to delete this transaction? This action cannot be undone.
+					</p>
+				</div>
+
+				<div class="flex justify-center gap-3 pt-2">
+					<Button
+						variant="secondary"
+						onclick={cancelDelete}
+						disabled={submitting}
+					>
+						Cancel
+					</Button>
+					<Button
+						variant="primary"
+						onclick={confirmDelete}
+						disabled={submitting}
+						class="bg-red-600 hover:bg-red-700 text-white"
+					>
+						{submitting ? 'Deleting...' : 'Delete Transaction'}
+					</Button>
+				</div>
+			</div>
+		</Modal>
+	</div>
+{/if}
