@@ -4,6 +4,7 @@
 	import { theme } from '$lib/stores/theme';
 	import Auth from '$lib/components/Auth.svelte';
 	import SetupNotice from '$lib/components/SetupNotice.svelte';
+	import PWAInstallPrompt from '$lib/components/PWAInstallPrompt.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -234,6 +235,9 @@
 
 <!-- Setup Notice Modal -->
 <SetupNotice show={showSetupNotice} instructions={setupInstructions} />
+
+<!-- PWA Install Prompt -->
+<PWAInstallPrompt />
 
 <style>
 	/* Custom scrollbar for better UX */
