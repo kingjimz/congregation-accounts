@@ -7,6 +7,7 @@
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
+	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import type { TransactionFormData, Transaction } from '$lib/types';
 
@@ -402,6 +403,17 @@
 			onchange={handleMonthChange}
 			showAll={true}
 		/>
+
+		<!-- Financial Chart -->
+		<Card title="Financial Overview">
+			<div class="h-96">
+				<FinancialChart
+					transactions={monthlyData().transactions}
+					month={selectedMonth || 'All'}
+					filter={transactionFilter}
+				/>
+			</div>
+		</Card>
 
 		<!-- Main Content Grid -->
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
