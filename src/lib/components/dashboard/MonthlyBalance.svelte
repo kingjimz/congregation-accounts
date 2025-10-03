@@ -32,8 +32,12 @@
 			.reduce((sum, t) => sum + t.amount, 0)
 	);
 
-	const openingBalanceAmount = $derived(openingBalance?.balance || 0);
-	const endingBalance = $derived(openingBalanceAmount + monthlyIncome - monthlyExpenses);
+	const calculateEndingBalance = (opening: number, income: number, expenses: number) => {
+		return opening + income - expenses;
+	};
+
+	const openingBalanceAmount = $derived(Number(openingBalance?.balance || 0));
+	const endingBalance = $derived(calculateEndingBalance(openingBalanceAmount, monthlyIncome, monthlyExpenses));
 
 	const monthName = $derived(formatMonthYear(month));
 </script>
