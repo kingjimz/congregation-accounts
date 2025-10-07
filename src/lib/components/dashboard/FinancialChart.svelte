@@ -29,31 +29,94 @@
 		return `${monthName} ${year}`;
 	}
 
-	// Process income data - return individual transactions
-	function processIncomeData(transactions: Transaction[]) {
-		return transactions
-			.filter(t => t.type === 'income')
-			.sort((a, b) => a.date.localeCompare(b.date));
+	// Helper functions for category classification
+	function isLocalCategory(category: string): boolean {
+		return category.toLowerCase().includes('local congregation');
 	}
 
-	// Process expense data - return individual transactions
+	function isWorldwideCategory(category: string): boolean {
+		return category.toLowerCase().includes('worldwide work');
+	}
+
+	// Process income data - separate local congregation and worldwide work donations
+	function processIncomeData(transactions: Transaction[]) {
+		const incomeTransactions = transactions
+			.filter(t => t.type === 'income')
+			.sort((a, b) => a.date.localeCompare(b.date));
+
+		const localDonations = incomeTransactions.filter(t => isLocalCategory(t.category));
+		const worldwideDonations = incomeTransactions.filter(t => isWorldwideCategory(t.category));
+
+		return {
+			local: localDonations,
+			worldwide: worldwideDonations,
+			all: incomeTransactions
+		};
+	}
+
+	// Process expense data - separate local congregation and worldwide work expenses
 	function processExpenseData(transactions: Transaction[]) {
-		return transactions
+		const expenseTransactions = transactions
 			.filter(t => t.type === 'expense')
 			.sort((a, b) => a.date.localeCompare(b.date));
+
+		const localExpenses = expenseTransactions.filter(t => isLocalCategory(t.category));
+		const worldwideExpenses = expenseTransactions.filter(t => isWorldwideCategory(t.category));
+
+		return {
+			local: localExpenses,
+			worldwide: worldwideExpenses,
+			all: expenseTransactions
+		};
 	}
 
 	// Create or update income chart
 	function updateIncomeChart() {
 		if (!incomeCanvasRef) return;
 
-		const incomeTransactions = processIncomeData(transactions);
-		const labels = incomeTransactions.map(t => {
-			const date = new Date(t.date);
-			return `${date.getMonth() + 1}/${date.getDate()}`;
+		const incomeData = processIncomeData(transactions);
+		
+		// Get all unique dates from both local and worldwide donations
+		const allDates = [...new Set([
+			...incomeData.local.map((t: Transaction) => t.date),
+			...incomeData.worldwide.map((t: Transaction) => t.date)
+		])].sort();
+
+		const labels = allDates.map(date => {
+			const d = new Date(date);
+			return `${d.getMonth() + 1}/${d.getDate()}`;
 		});
-		const data = incomeTransactions.map(t => t.amount);
-		const tooltipLabels = incomeTransactions.map(t => `${t.date} - ${t.description}`);
+
+		// Create data arrays for each category, filling missing dates with 0
+		const localData = allDates.map(date => {
+			const transaction = incomeData.local.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		const worldwideData = allDates.map(date => {
+			const transaction = incomeData.worldwide.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		// Create tooltip labels
+		const tooltipLabels = allDates.map(date => {
+			const localTransaction = incomeData.local.find(t => t.date === date);
+			const worldwideTransaction = incomeData.worldwide.find(t => t.date === date);
+			
+			// Format date to be shorter (MM/DD)
+			const d = new Date(date);
+			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
+			
+			let tooltip = shortDate;
+			if (localTransaction && worldwideTransaction) {
+				tooltip = `${shortDate} - Donations`;
+			} else if (localTransaction) {
+				tooltip = `${shortDate} - Local`;
+			} else if (worldwideTransaction) {
+				tooltip = `${shortDate} - Worldwide`;
+			}
+			return tooltip;
+		});
 
 		// Destroy existing chart if it exists
 		if (incomeChartInstance) {
@@ -70,10 +133,19 @@
 				labels: labels,
 				datasets: [
 					{
-						label: 'Donations',
-						data: data,
+						label: 'Local Congregation Donations',
+						data: localData,
 						backgroundColor: chartType === 'bar' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(34, 197, 94, 0.2)',
 						borderColor: 'rgba(34, 197, 94, 1)',
+						borderWidth: chartType === 'bar' ? 1 : 2,
+						tension: 0.4,
+						fill: chartType === 'line'
+					},
+					{
+						label: 'Worldwide Work Donations',
+						data: worldwideData,
+						backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.2)',
+						borderColor: 'rgba(59, 130, 246, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
 						tension: 0.4,
 						fill: chartType === 'line'
@@ -142,13 +214,49 @@
 	function updateExpenseChart() {
 		if (!expenseCanvasRef) return;
 
-		const expenseTransactions = processExpenseData(transactions);
-		const labels = expenseTransactions.map(t => {
-			const date = new Date(t.date);
-			return `${date.getMonth() + 1}/${date.getDate()}`;
+		const expenseData = processExpenseData(transactions);
+		
+		// Get all unique dates from both local and worldwide expenses
+		const allDates = [...new Set([
+			...expenseData.local.map((t: Transaction) => t.date),
+			...expenseData.worldwide.map((t: Transaction) => t.date)
+		])].sort();
+
+		const labels = allDates.map(date => {
+			const d = new Date(date);
+			return `${d.getMonth() + 1}/${d.getDate()}`;
 		});
-		const data = expenseTransactions.map(t => t.amount);
-		const tooltipLabels = expenseTransactions.map(t => `${t.date} - ${t.description}`);
+
+		// Create data arrays for each category, filling missing dates with 0
+		const localData = allDates.map(date => {
+			const transaction = expenseData.local.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		const worldwideData = allDates.map(date => {
+			const transaction = expenseData.worldwide.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		// Create tooltip labels
+		const tooltipLabels = allDates.map(date => {
+			const localTransaction = expenseData.local.find(t => t.date === date);
+			const worldwideTransaction = expenseData.worldwide.find(t => t.date === date);
+			
+			// Format date to be shorter (MM/DD)
+			const d = new Date(date);
+			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
+			
+			let tooltip = shortDate;
+			if (localTransaction && worldwideTransaction) {
+				tooltip = `${shortDate} - Expenses`;
+			} else if (localTransaction) {
+				tooltip = `${shortDate} - Local`;
+			} else if (worldwideTransaction) {
+				tooltip = `${shortDate} - Worldwide`;
+			}
+			return tooltip;
+		});
 
 		// Destroy existing chart if it exists
 		if (expenseChartInstance) {
@@ -165,10 +273,19 @@
 				labels: labels,
 				datasets: [
 					{
-						label: 'Expenses',
-						data: data,
+						label: 'Local Congregation Expenses',
+						data: localData,
 						backgroundColor: chartType === 'bar' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.2)',
 						borderColor: 'rgba(239, 68, 68, 1)',
+						borderWidth: chartType === 'bar' ? 1 : 2,
+						tension: 0.4,
+						fill: chartType === 'line'
+					},
+					{
+						label: 'Worldwide Work Expenses',
+						data: worldwideData,
+						backgroundColor: chartType === 'bar' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(168, 85, 247, 0.2)',
+						borderColor: 'rgba(168, 85, 247, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
 						tension: 0.4,
 						fill: chartType === 'line'

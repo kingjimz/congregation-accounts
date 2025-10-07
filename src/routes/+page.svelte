@@ -5,11 +5,11 @@
 	import { Alert, Button, Modal, Card } from '$lib/components/ui';
 	import TransactionForm from '$lib/components/forms/TransactionForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
-	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
+	import ChartSummary from '$lib/components/dashboard/ChartSummary.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
-	import type { TransactionFormData, Transaction } from '$lib/types';
+	import type { TransactionFormData, Transaction, OpeningBalance } from '$lib/types';
 
 	// UI state
 	let showTransactionForm = $state(false);
@@ -383,7 +383,7 @@
 		<!-- Header with Actions -->
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 			<div>
-				<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Financial Dashboard</h1>
+				<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Dashboard</h1>
 				<p style="color: var(--color-text-secondary);">Manage congregation accounts and track financial activities</p>
 			</div>
 			<div>
@@ -415,124 +415,53 @@
 			</div>
 		</Card>
 
-		<!-- Main Content Grid -->
-		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-			<!-- Left Column -->
-			<div class="lg:col-span-1 space-y-6">
-				<!-- Monthly Balance Card -->
-				<MonthlyBalance
-					month={selectedMonth || 'All'}
-					transactions={monthlyData().transactions}
-					openingBalance={monthlyData().openingBalance}
-					onSetOpeningBalance={() => showOpeningBalanceForm = true}
-				/>
+		<!-- Chart Summary & Analysis -->
+		<ChartSummary
+			transactions={monthlyData().transactions}
+			month={selectedMonth || 'All'}
+			openingBalance={typeof monthlyData().openingBalance === 'number' ? null : (monthlyData().openingBalance as OpeningBalance | null)}
+			loading={$loading}
+			onSetOpeningBalance={() => showOpeningBalanceForm = true}
+		/>
 
-				<!-- Category Breakdown -->
-				<Card title="Category Breakdown">
-					<div class="space-y-4">
-						<!-- Local Congregation -->
-						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
-							<div class="mb-3">
-								<h4 class="font-medium" style="color: var(--color-text-primary);">
-									Local Congregation
-								</h4>
-							</div>
-							<div class="space-y-2">
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
-									<span class="text-sm font-semibold" style="color: var(--color-success);">
-										+₱{categoryTotals().local.donations.toFixed(2)}
-									</span>
-								</div>
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Expenses</span>
-									<span class="text-sm font-semibold" style="color: var(--color-error);">
-										-₱{categoryTotals().local.expenses.toFixed(2)}
-									</span>
-								</div>
-								<div class="pt-2 mt-2 border-t" style="border-color: var(--color-border-secondary);">
-									<div class="flex justify-between items-center">
-										<span class="text-sm font-semibold" style="color: var(--color-text-primary);">Balance</span>
-										<span class="font-bold" style="color: {categoryTotals().local.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
-											₱{categoryTotals().local.balance.toFixed(2)}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<!-- Worldwide Work -->
-						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
-							<div class="mb-3">
-								<h4 class="font-medium" style="color: var(--color-text-primary);">
-									Worldwide Work
-								</h4>
-							</div>
-							<div class="space-y-2">
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
-									<span class="text-sm font-semibold" style="color: var(--color-success);">
-										+₱{categoryTotals().worldwide.donations.toFixed(2)}
-									</span>
-								</div>
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Expenses</span>
-									<span class="text-sm font-semibold" style="color: var(--color-error);">
-										-₱{categoryTotals().worldwide.expenses.toFixed(2)}
-									</span>
-								</div>
-								<div class="pt-2 mt-2 border-t" style="border-color: var(--color-border-secondary);">
-									<div class="flex justify-between items-center">
-										<span class="text-sm font-semibold" style="color: var(--color-text-primary);">Balance</span>
-										<span class="font-bold" style="color: {categoryTotals().worldwide.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
-											₱{categoryTotals().worldwide.balance.toFixed(2)}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</Card>
-			</div>
-
-			<!-- All Transactions -->
-			<div class="lg:col-span-2">
-				<!-- Filter Buttons -->
-				<div class="mb-4 flex gap-2">
-					<button
-						onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
-						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-						style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
-					>
-						All
-					</button>
-					<button
-						onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
-						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-						style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
-					>
-						Donations
-					</button>
-					<button
-						onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
-						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-						style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
-					>
-						Expenses
-					</button>
+		<!-- Transaction Table - Full Width -->
+		<div class="w-full">
+			<!-- Filter Buttons -->
+			<div class="mb-4 flex gap-2">
+				<button
+					onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
+					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+					style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+				>
+					All
+				</button>
+				<button
+					onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
+					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+					style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+				>
+					Donations
+				</button>
+				<button
+					onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
+					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+					style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+				>
+					Expenses
+				</button>
 				</div>
 
-				<TransactionList
-					transactions={paginatedTransactions()}
-					title="All Transactions"
-					showActions={true}
-					ondelete={handleDeleteTransaction}
-					onedit={handleEditTransaction}
-				/>
+			<TransactionList
+				transactions={paginatedTransactions()}
+				title="All Transactions"
+				showActions={true}
+				ondelete={handleDeleteTransaction}
+				onedit={handleEditTransaction}
+			/>
 
-				<!-- Pagination Controls -->
-				{#if totalPages > 1}
-					<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+			<!-- Pagination Controls -->
+			{#if totalPages > 1}
+				<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
 						<!-- Page Info -->
 						<div class="text-sm" style="color: var(--color-text-secondary);">
 							Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length} transactions
@@ -605,7 +534,6 @@
 						</div>
 					</div>
 				{/if}
-			</div>
 		</div>
 	{/if}
 
