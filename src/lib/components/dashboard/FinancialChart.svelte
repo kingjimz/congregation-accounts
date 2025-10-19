@@ -133,7 +133,7 @@
 				labels: labels,
 				datasets: [
 					{
-						label: 'Local Congregation Donations',
+						label: 'LCE',
 						data: localData,
 						backgroundColor: chartType === 'bar' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(34, 197, 94, 0.2)',
 						borderColor: 'rgba(34, 197, 94, 1)',
@@ -142,7 +142,7 @@
 						fill: chartType === 'line'
 					},
 					{
-						label: 'Worldwide Work Donations',
+						label: 'WWW',
 						data: worldwideData,
 						backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.2)',
 						borderColor: 'rgba(59, 130, 246, 1)',
@@ -273,7 +273,7 @@
 				labels: labels,
 				datasets: [
 					{
-						label: 'Local Congregation Expenses',
+						label: 'LCE',
 						data: localData,
 						backgroundColor: chartType === 'bar' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.2)',
 						borderColor: 'rgba(239, 68, 68, 1)',
@@ -282,7 +282,7 @@
 						fill: chartType === 'line'
 					},
 					{
-						label: 'Worldwide Work Expenses',
+						label: 'WWW',
 						data: worldwideData,
 						backgroundColor: chartType === 'bar' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(168, 85, 247, 0.2)',
 						borderColor: 'rgba(168, 85, 247, 1)',
