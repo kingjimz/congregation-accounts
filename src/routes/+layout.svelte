@@ -137,23 +137,24 @@
 {:else}
 	<div class="flex flex-col min-h-screen transition-colors duration-300" style="background: var(--color-bg-secondary);">
 		<!-- Header -->
-		<header class="sticky top-0 z-40 bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
+		<header class="header-container z-40 bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
+			<div class="header-accent"></div>
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between py-6">
 					<h1 class="text-2xl font-bold flex items-center">
-						<span class="text-emerald-400 font-extrabold mr-3 text-3xl tracking-tight">CA</span>
-						<span class="bg-gradient-to-r from-slate-100 to-emerald-100 bg-clip-text text-transparent font-semibold tracking-wide">
+						<span class="text-emerald-400 font-extrabold mr-3 text-3xl tracking-tight drop-shadow-sm">CA</span>
+						<span class="header-title text-white font-semibold tracking-wide drop-shadow-sm">
 							Congregation Accounts
 						</span>
 					</h1>
 					<div class="flex items-center space-x-4">
 						<div class="hidden sm:block">
-							<span class="text-indigo-100 text-sm">Welcome back,</span>
-							<span class="text-white font-medium ml-1">{formatUsername($user?.email)}</span>
+							<span class="text-white/90 text-sm font-medium">Welcome back,</span>
+							<span class="text-white font-semibold ml-1 drop-shadow-sm">{formatUsername($user?.email)}</span>
 						</div>
 						<button 
 							onclick={handleSignOut}
-							class="bg-slate-700/50 hover:bg-slate-600/60 text-slate-100 p-3 rounded-lg font-medium transition-all duration-200 border border-slate-600/40 hover:border-slate-500/60 backdrop-blur-sm"
+							class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-lg font-medium transition-all duration-200 border border-white/20 hover:border-white/30 backdrop-blur-sm shadow-sm"
 							title="Sign Out"
 							aria-label="Sign Out"
 						>
@@ -240,6 +241,32 @@
 <PWAInstallPrompt />
 
 <style>
+	.header-container {
+		position: relative;
+		overflow: hidden;
+	}
+
+	.header-accent {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 4px;
+		background: linear-gradient(90deg, 
+			#10b981 0%, 
+			#3b82f6 25%, 
+			#8b5cf6 50%, 
+			#ec4899 75%, 
+			#f59e0b 100%
+		);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	}
+
+	.header-title {
+		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+		filter: brightness(1.1);
+	}
+
 	/* Custom scrollbar for better UX */
 	:global(html) {
 		scroll-behavior: smooth;

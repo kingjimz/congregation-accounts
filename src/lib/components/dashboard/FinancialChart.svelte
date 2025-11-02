@@ -29,31 +29,100 @@
 		return `${monthName} ${year}`;
 	}
 
-	// Process income data - return individual transactions
-	function processIncomeData(transactions: Transaction[]) {
-		return transactions
-			.filter(t => t.type === 'income')
-			.sort((a, b) => a.date.localeCompare(b.date));
+	// Helper functions for category classification
+	function isLocalCategory(category: string): boolean {
+		return category.toLowerCase().includes('local congregation');
 	}
 
-	// Process expense data - return individual transactions
+	function isWorldwideCategory(category: string): boolean {
+		return category.toLowerCase().includes('worldwide work');
+	}
+
+	// Process income data - return individual transactions split by category
+	function processIncomeData(transactions: Transaction[]) {
+		const incomeTransactions = transactions
+			.filter(t => t.type === 'income')
+			.sort((a, b) => a.date.localeCompare(b.date));
+		
+		return {
+			lce: incomeTransactions.filter(t => isLocalCategory(t.category)),
+			www: incomeTransactions.filter(t => isWorldwideCategory(t.category))
+		};
+	}
+
+	// Process expense data - return individual transactions split by category
 	function processExpenseData(transactions: Transaction[]) {
-		return transactions
+		const expenseTransactions = transactions
 			.filter(t => t.type === 'expense')
 			.sort((a, b) => a.date.localeCompare(b.date));
+		
+		return {
+			lce: expenseTransactions.filter(t => isLocalCategory(t.category)),
+			www: expenseTransactions.filter(t => isWorldwideCategory(t.category))
+		};
+	}
+
+	// Get all unique dates from transactions and create aligned data arrays
+	function createAlignedData(lceTransactions: Transaction[], wwwTransactions: Transaction[]) {
+		// Get all unique dates
+		const allDates = new Set<string>();
+		lceTransactions.forEach(t => allDates.add(t.date));
+		wwwTransactions.forEach(t => allDates.add(t.date));
+		const sortedDates = Array.from(allDates).sort();
+		
+		// Create maps for quick lookup
+		const lceMap = new Map<string, Transaction[]>();
+		const wwwMap = new Map<string, Transaction[]>();
+		
+		lceTransactions.forEach(t => {
+			if (!lceMap.has(t.date)) {
+				lceMap.set(t.date, []);
+			}
+			lceMap.get(t.date)!.push(t);
+		});
+		
+		wwwTransactions.forEach(t => {
+			if (!wwwMap.has(t.date)) {
+				wwwMap.set(t.date, []);
+			}
+			wwwMap.get(t.date)!.push(t);
+		});
+		
+		// Create aligned arrays
+		const labels = sortedDates.map(dateStr => {
+			const date = new Date(dateStr);
+			return `${date.getMonth() + 1}/${date.getDate()}`;
+		});
+		
+		const lceData = sortedDates.map(dateStr => {
+			const transactions = lceMap.get(dateStr) || [];
+			return transactions.reduce((sum, t) => sum + t.amount, 0);
+		});
+		
+		const wwwData = sortedDates.map(dateStr => {
+			const transactions = wwwMap.get(dateStr) || [];
+			return transactions.reduce((sum, t) => sum + t.amount, 0);
+		});
+		
+		const tooltips = sortedDates.map(dateStr => {
+			const lce = lceMap.get(dateStr) || [];
+			const www = wwwMap.get(dateStr) || [];
+			const all = [...lce, ...www];
+			if (all.length === 1) {
+				return `${dateStr} - ${all[0].description}`;
+			}
+			return `${dateStr} - ${all.length} transactions`;
+		});
+		
+		return { labels, lceData, wwwData, tooltips };
 	}
 
 	// Create or update income chart
 	function updateIncomeChart() {
 		if (!incomeCanvasRef) return;
 
-		const incomeTransactions = processIncomeData(transactions);
-		const labels = incomeTransactions.map(t => {
-			const date = new Date(t.date);
-			return `${date.getMonth() + 1}/${date.getDate()}`;
-		});
-		const data = incomeTransactions.map(t => t.amount);
-		const tooltipLabels = incomeTransactions.map(t => `${t.date} - ${t.description}`);
+		const { lce, www } = processIncomeData(transactions);
+		const { labels, lceData, wwwData, tooltips } = createAlignedData(lce, www);
 
 		// Destroy existing chart if it exists
 		if (incomeChartInstance) {
@@ -70,10 +139,19 @@
 				labels: labels,
 				datasets: [
 					{
-						label: 'Donations',
-						data: data,
+						label: 'LCE',
+						data: lceData,
 						backgroundColor: chartType === 'bar' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(34, 197, 94, 0.2)',
 						borderColor: 'rgba(34, 197, 94, 1)',
+						borderWidth: chartType === 'bar' ? 1 : 2,
+						tension: 0.4,
+						fill: chartType === 'line'
+					},
+					{
+						label: 'WWW',
+						data: wwwData,
+						backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.2)',
+						borderColor: 'rgba(59, 130, 246, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
 						tension: 0.4,
 						fill: chartType === 'line'
@@ -94,7 +172,7 @@
 					},
 					title: {
 						display: true,
-						text: `Donations - ${formatMonthForTitle(month)}`,
+						text: 'Donations',
 						color: getComputedStyle(document.documentElement)
 							.getPropertyValue('--color-text-primary')
 							.trim()
@@ -102,7 +180,7 @@
 					tooltip: {
 						callbacks: {
 							title: function(context: any) {
-								return tooltipLabels[context[0].dataIndex];
+								return 'Donations';
 							}
 						}
 					}
@@ -142,13 +220,8 @@
 	function updateExpenseChart() {
 		if (!expenseCanvasRef) return;
 
-		const expenseTransactions = processExpenseData(transactions);
-		const labels = expenseTransactions.map(t => {
-			const date = new Date(t.date);
-			return `${date.getMonth() + 1}/${date.getDate()}`;
-		});
-		const data = expenseTransactions.map(t => t.amount);
-		const tooltipLabels = expenseTransactions.map(t => `${t.date} - ${t.description}`);
+		const { lce, www } = processExpenseData(transactions);
+		const { labels, lceData, wwwData, tooltips } = createAlignedData(lce, www);
 
 		// Destroy existing chart if it exists
 		if (expenseChartInstance) {
@@ -165,10 +238,19 @@
 				labels: labels,
 				datasets: [
 					{
-						label: 'Expenses',
-						data: data,
+						label: 'LCE',
+						data: lceData,
 						backgroundColor: chartType === 'bar' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.2)',
 						borderColor: 'rgba(239, 68, 68, 1)',
+						borderWidth: chartType === 'bar' ? 1 : 2,
+						tension: 0.4,
+						fill: chartType === 'line'
+					},
+					{
+						label: 'WWW',
+						data: wwwData,
+						backgroundColor: chartType === 'bar' ? 'rgba(251, 146, 60, 0.7)' : 'rgba(251, 146, 60, 0.2)',
+						borderColor: 'rgba(251, 146, 60, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
 						tension: 0.4,
 						fill: chartType === 'line'
@@ -189,7 +271,7 @@
 					},
 					title: {
 						display: true,
-						text: `Expenses - ${formatMonthForTitle(month)}`,
+						text: 'Expenses',
 						color: getComputedStyle(document.documentElement)
 							.getPropertyValue('--color-text-primary')
 							.trim()
@@ -197,7 +279,7 @@
 					tooltip: {
 						callbacks: {
 							title: function(context: any) {
-								return tooltipLabels[context[0].dataIndex];
+								return 'Expenses';
 							}
 						}
 					}
@@ -259,9 +341,9 @@
 	});
 </script>
 
-<div class="w-full h-full space-y-4">
+<div class="w-full h-full space-y-2">
 	<!-- Chart Type Switcher -->
-	<div class="flex justify-end gap-2 pb-2">
+	<div class="flex justify-end gap-2 pb-1">
 		<button
 			onclick={() => chartType = 'line'}
 			class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {chartType === 'line' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"

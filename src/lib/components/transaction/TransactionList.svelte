@@ -10,6 +10,7 @@
 		showActions?: boolean;
 		maxItems?: number;
 		loading?: boolean;
+		allTransactionsForTotals?: Transaction[]; // All transactions for calculating totals (before filtering/pagination)
 		ondelete?: (event: { id: string }) => void;
 		onedit?: (event: { transaction: Transaction }) => void;
 	}
@@ -20,6 +21,7 @@
 		showActions = true,
 		maxItems,
 		loading = false,
+		allTransactionsForTotals,
 		ondelete,
 		onedit
 	}: Props = $props();
@@ -32,6 +34,21 @@
 	const displayTransactions = $derived(
 		maxItems ? transactions.slice(0, maxItems) : transactions
 	);
+
+	// Calculate totals from all transactions (or displayed if allTransactionsForTotals not provided)
+	const totals = $derived(() => {
+		const transactionsForTotals = allTransactionsForTotals || transactions;
+		// Only include donations (income) for donation total
+		const totalIncome = transactionsForTotals
+			.filter(t => t.type === 'income')
+			.reduce((sum, t) => sum + t.amount, 0);
+		// Only include expenses for expense total
+		const totalExpenses = transactionsForTotals
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + t.amount, 0);
+		const netTotal = totalIncome - totalExpenses;
+		return { totalIncome, totalExpenses, netTotal };
+	});
 
 	// Track which menu is open
 	let openMenuId = $state<string | null>(null);
@@ -167,6 +184,32 @@
 					</div>
 				</div>
 			{/each}
+
+			<!-- Total Row -->
+			{#if displayTransactions.length > 0}
+				<div class="border-t-2 pt-4 mt-4" style="border-color: var(--color-border-primary);">
+					<div class="grid grid-cols-3 gap-4 text-center">
+						<div>
+							<div class="text-xs font-medium mb-1" style="color: var(--color-text-secondary);">Total Donations</div>
+							<div class="text-sm font-semibold" style="color: var(--color-success);">
+								+{formatCurrency(totals().totalIncome)}
+							</div>
+						</div>
+						<div>
+							<div class="text-xs font-medium mb-1" style="color: var(--color-text-secondary);">Total Expenses</div>
+							<div class="text-sm font-semibold" style="color: var(--color-error);">
+								-{formatCurrency(totals().totalExpenses)}
+							</div>
+						</div>
+						<div>
+							<div class="text-xs font-medium mb-1" style="color: var(--color-text-secondary);">Net Total</div>
+							<div class="text-base font-bold" style="color: {totals().netTotal >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
+								{formatCurrency(totals().netTotal)}
+							</div>
+						</div>
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		{#if maxItems && transactions.length > maxItems}

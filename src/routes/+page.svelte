@@ -5,10 +5,10 @@
 	import { Alert, Button, Modal, Card } from '$lib/components/ui';
 	import TransactionForm from '$lib/components/forms/TransactionForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
-	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
+	import { formatCurrency } from '$lib/utils';
 	import type { TransactionFormData, Transaction } from '$lib/types';
 
 	// UI state
@@ -65,62 +65,48 @@
 		return transactions.filter(t => t.type === transactionFilter);
 	});
 
-	// Categories for classification - matching the actual categories from constants
-	const LOCAL_CONGREGATION_CATEGORIES = [
-		'Local Congregation Donations',
-		'Local Congregation Expenses'
-	];
-
-	const WORLDWIDE_WORK_CATEGORIES = [
-		'Worldwide Work Donations',
-		'Worldwide Work Expenses'
-	];
 
 	// Helper functions for category classification
 	function isLocalCategory(category: string): boolean {
-		// Check if the category contains "Local Congregation"
 		return category.toLowerCase().includes('local congregation');
 	}
 
 	function isWorldwideCategory(category: string): boolean {
-		// Check if the category contains "Worldwide Work"
 		return category.toLowerCase().includes('worldwide work');
 	}
 
-	// Calculate category totals (always use unfiltered data for totals)
-	const categoryTotals = $derived(() => {
-		const unfilteredTransactions = monthlyData().transactions;
-		const localDonations = unfilteredTransactions
-			.filter(t => t.type === 'income' && isLocalCategory(t.category))
+	// Calculate summary totals
+	const summaryTotals = $derived(() => {
+		const transactions = monthlyData().transactions;
+		const openingBalanceValue = monthlyData().openingBalance;
+		const openingBalance = typeof openingBalanceValue === 'object' && openingBalanceValue !== null 
+			? Number(openingBalanceValue.balance || 0) 
+			: 0;
+		const totalDonations = transactions
+			.filter(t => t.type === 'income')
 			.reduce((sum, t) => sum + t.amount, 0);
-
-		const localExpenses = unfilteredTransactions
-			.filter(t => t.type === 'expense' && isLocalCategory(t.category))
+		const totalExpenses = transactions
+			.filter(t => t.type === 'expense')
 			.reduce((sum, t) => sum + t.amount, 0);
+		const endBalance = openingBalance + totalDonations - totalExpenses;
 
-		const worldwideDonations = unfilteredTransactions
+		// Worldwide Work donations
+		const worldwideDonations = transactions
 			.filter(t => t.type === 'income' && isWorldwideCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
-		const worldwideExpenses = unfilteredTransactions
-			.filter(t => t.type === 'expense' && isWorldwideCategory(t.category))
+		// Local Congregation donations
+		const localDonations = transactions
+			.filter(t => t.type === 'income' && isLocalCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
 		return {
-			local: {
-				donations: localDonations,
-				expenses: localExpenses,
-				balance: localDonations - localExpenses
-			},
-			worldwide: {
-				donations: worldwideDonations,
-				expenses: worldwideExpenses,
-				balance: worldwideDonations - worldwideExpenses
-			},
-			total: {
-				donations: localDonations + worldwideDonations,
-				expenses: localExpenses + worldwideExpenses
-			}
+			openingBalance,
+			totalDonations,
+			totalExpenses,
+			endBalance,
+			worldwideDonations,
+			localDonations
 		};
 	});
 
@@ -404,126 +390,107 @@
 			showAll={true}
 		/>
 
+		<!-- Summary Card -->
+		<Card>
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+				<!-- Start of Month Balance -->
+				<div class="summary-card">
+					<div class="summary-header">
+						<h3 class="summary-label">Start of Month Balance</h3>
+						<button
+							type="button"
+							onclick={() => showOpeningBalanceForm = true}
+							class="summary-button"
+							title="Set Start of Month Balance"
+							aria-label="Set Start of Month Balance"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+							</svg>
+						</button>
+					</div>
+					<p class="summary-value">{formatCurrency(summaryTotals().openingBalance)}</p>
+				</div>
+
+				<!-- Total Donations -->
+				<div class="summary-card">
+					<h3 class="summary-label">Total Donations</h3>
+					<p class="summary-value summary-value-success">
+						+{formatCurrency(summaryTotals().totalDonations)}
+					</p>
+				</div>
+
+				<!-- Total Expenses -->
+				<div class="summary-card">
+					<h3 class="summary-label">Total Expenses</h3>
+					<p class="summary-value summary-value-error">
+						-{formatCurrency(summaryTotals().totalExpenses)}
+					</p>
+				</div>
+
+				<!-- Worldwide Work Donations -->
+				<div class="summary-card">
+					<h3 class="summary-label">Worldwide Work Donations</h3>
+					<p class="summary-value summary-value-success">
+						+{formatCurrency(summaryTotals().worldwideDonations)}
+					</p>
+				</div>
+
+				<!-- Local Congregation Donations -->
+				<div class="summary-card">
+					<h3 class="summary-label">Local Congregation Donations</h3>
+					<p class="summary-value summary-value-success">
+						+{formatCurrency(summaryTotals().localDonations)}
+					</p>
+				</div>
+
+				<!-- End of Month Balance -->
+				<div class="summary-card">
+					<h3 class="summary-label">End of Month Balance</h3>
+					<p class="summary-value summary-value-white">
+						{formatCurrency(summaryTotals().endBalance)}
+					</p>
+				</div>
+			</div>
+		</Card>
+
 		<!-- Financial Chart -->
-		<Card title="Financial Overview">
-			<div class="h-96">
+		<Card title="Financial Overview" padding="sm">
+			<div class="h-96 -mt-2">
 				<FinancialChart
 					transactions={monthlyData().transactions}
 					month={selectedMonth || 'All'}
-					filter={transactionFilter}
 				/>
 			</div>
 		</Card>
 
-		<!-- Main Content Grid -->
-		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-			<!-- Left Column -->
-			<div class="lg:col-span-1 space-y-6">
-				<!-- Monthly Balance Card -->
-				<MonthlyBalance
-					month={selectedMonth || 'All'}
-					transactions={monthlyData().transactions}
-					openingBalance={monthlyData().openingBalance}
-					onSetOpeningBalance={() => showOpeningBalanceForm = true}
-				/>
-
-				<!-- Category Breakdown -->
-				<Card title="Category Breakdown">
-					<div class="space-y-4">
-						<!-- Local Congregation -->
-						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
-							<div class="mb-3">
-								<h4 class="font-medium" style="color: var(--color-text-primary);">
-									Local Congregation
-								</h4>
-							</div>
-							<div class="space-y-2">
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
-									<span class="text-sm font-semibold" style="color: var(--color-success);">
-										+₱{categoryTotals().local.donations.toFixed(2)}
-									</span>
-								</div>
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Expenses</span>
-									<span class="text-sm font-semibold" style="color: var(--color-error);">
-										-₱{categoryTotals().local.expenses.toFixed(2)}
-									</span>
-								</div>
-								<div class="pt-2 mt-2 border-t" style="border-color: var(--color-border-secondary);">
-									<div class="flex justify-between items-center">
-										<span class="text-sm font-semibold" style="color: var(--color-text-primary);">Balance</span>
-										<span class="font-bold" style="color: {categoryTotals().local.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
-											₱{categoryTotals().local.balance.toFixed(2)}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<!-- Worldwide Work -->
-						<div class="p-4 rounded-lg" style="background: var(--color-surface-primary);">
-							<div class="mb-3">
-								<h4 class="font-medium" style="color: var(--color-text-primary);">
-									Worldwide Work
-								</h4>
-							</div>
-							<div class="space-y-2">
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
-									<span class="text-sm font-semibold" style="color: var(--color-success);">
-										+₱{categoryTotals().worldwide.donations.toFixed(2)}
-									</span>
-								</div>
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Expenses</span>
-									<span class="text-sm font-semibold" style="color: var(--color-error);">
-										-₱{categoryTotals().worldwide.expenses.toFixed(2)}
-									</span>
-								</div>
-								<div class="pt-2 mt-2 border-t" style="border-color: var(--color-border-secondary);">
-									<div class="flex justify-between items-center">
-										<span class="text-sm font-semibold" style="color: var(--color-text-primary);">Balance</span>
-										<span class="font-bold" style="color: {categoryTotals().worldwide.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)'};">
-											₱{categoryTotals().worldwide.balance.toFixed(2)}
-										</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</Card>
+		<!-- All Transactions -->
+		<div>
+			<!-- Filter Buttons -->
+			<div class="mb-4 flex gap-2">
+				<button
+					onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
+					class="filter-button {transactionFilter === 'all' ? 'filter-active' : ''}"
+				>
+					All
+				</button>
+				<button
+					onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
+					class="filter-button {transactionFilter === 'income' ? 'filter-active' : ''}"
+				>
+					Donations
+				</button>
+				<button
+					onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
+					class="filter-button {transactionFilter === 'expense' ? 'filter-active' : ''}"
+				>
+					Expenses
+				</button>
 			</div>
-
-			<!-- All Transactions -->
-			<div class="lg:col-span-2">
-				<!-- Filter Buttons -->
-				<div class="mb-4 flex gap-2">
-					<button
-						onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
-						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-						style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
-					>
-						All
-					</button>
-					<button
-						onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
-						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-						style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
-					>
-						Donations
-					</button>
-					<button
-						onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
-						class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-						style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
-					>
-						Expenses
-					</button>
-				</div>
 
 				<TransactionList
 					transactions={paginatedTransactions()}
+					allTransactionsForTotals={monthlyData().transactions}
 					title="All Transactions"
 					showActions={true}
 					ondelete={handleDeleteTransaction}
@@ -606,7 +573,6 @@
 					</div>
 				{/if}
 			</div>
-		</div>
 	{/if}
 
 	<!-- Transaction Form Modal -->
@@ -762,3 +728,142 @@
 		</div>
 	</Modal>
 </div>
+
+<style>
+	.summary-card {
+		padding: 1rem;
+		border-radius: 0.75rem;
+		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border-primary);
+		transition: all 0.2s ease;
+		position: relative;
+		overflow: hidden;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	}
+
+	.summary-card::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 3px;
+		height: 100%;
+		background: linear-gradient(180deg, #e5e7eb, #d1d5db);
+		opacity: 1;
+	}
+
+	.summary-card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+		border-color: var(--color-border-primary);
+	}
+
+	.summary-card:hover::before {
+		opacity: 1;
+		width: 4px;
+	}
+
+	.summary-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 0.5rem;
+	}
+
+	.summary-label {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		margin: 0;
+		line-height: 1.3;
+	}
+
+	.summary-button {
+		padding: 0.25rem;
+		border-radius: 0.375rem;
+		border: none;
+		background: var(--color-bg-secondary);
+		color: var(--color-text-primary);
+		cursor: pointer;
+		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.summary-button:hover {
+		background: #6366f1;
+		color: white;
+		transform: scale(1.05);
+	}
+
+	.summary-button:active {
+		transform: scale(0.95);
+	}
+
+	.summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0;
+		line-height: 1.2;
+		letter-spacing: -0.02em;
+	}
+
+	.summary-value-success {
+		color: var(--color-success);
+	}
+
+	.summary-value-error {
+		color: var(--color-error);
+	}
+
+	.summary-value-white {
+		color: white;
+	}
+
+	.filter-button {
+		font-weight: 500;
+		transition: all 0.2s ease;
+		background: transparent;
+		border: none;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		position: relative;
+		padding: 0.5rem 1rem;
+	}
+
+	.filter-button:hover {
+		color: var(--color-text-primary);
+	}
+
+	.filter-active {
+		color: var(--color-text-primary);
+	}
+
+	.filter-active::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, #e5e7eb, #d1d5db);
+		border-radius: 1px;
+	}
+
+	@media (max-width: 768px) {
+		.summary-card {
+			padding: 0.875rem;
+		}
+
+		.summary-value {
+			font-size: 1.25rem;
+		}
+
+		.summary-label {
+			font-size: 0.75rem;
+		}
+	}
+</style>
