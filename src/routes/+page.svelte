@@ -476,22 +476,19 @@
 			<div class="mb-4 flex gap-2">
 				<button
 					onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
-					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-					style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+					class="filter-tab {transactionFilter === 'all' ? 'filter-tab-active' : ''}"
 				>
 					All
 				</button>
 				<button
 					onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
-					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-					style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+					class="filter-tab {transactionFilter === 'income' ? 'filter-tab-active' : ''}"
 				>
 					Donations
 				</button>
 				<button
 					onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
-					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-					style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+					class="filter-tab {transactionFilter === 'expense' ? 'filter-tab-active' : ''}"
 				>
 					Expenses
 				</button>
@@ -499,6 +496,7 @@
 
 			<TransactionList
 				transactions={paginatedTransactions()}
+				allTransactionsForTotals={monthlyData().transactions}
 				title="All Transactions"
 				showActions={true}
 				ondelete={handleDeleteTransaction}
@@ -831,34 +829,34 @@
 		color: white;
 	}
 
-	.filter-button {
+	.filter-tab {
+		padding: 0.5rem 1rem;
+		border-radius: 0.5rem;
 		font-weight: 500;
 		transition: all 0.2s ease;
-		background: transparent;
-		border: none;
-		color: var(--color-text-secondary);
+		background: var(--color-bg-secondary);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-primary);
 		cursor: pointer;
 		position: relative;
-		padding: 0.5rem 1rem;
 	}
 
-	.filter-button:hover {
-		color: var(--color-text-primary);
+	.filter-tab:hover {
+		background: var(--color-surface-hover);
+		border-color: var(--color-border-primary);
 	}
 
-	.filter-active {
-		color: var(--color-text-primary);
+	.filter-tab-active {
+		background: #4f46e5 !important;
+		color: white !important;
+		border-color: #4f46e5 !important;
+		font-weight: 600;
+		box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 	}
 
-	.filter-active::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, #e5e7eb, #d1d5db);
-		border-radius: 1px;
+	.filter-tab-active:hover {
+		background: #4338ca !important;
+		border-color: #4338ca !important;
 	}
 
 	@media (max-width: 768px) {

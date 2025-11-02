@@ -381,8 +381,7 @@
 	<div class="flex justify-end gap-2 pb-1">
 		<button
 			onclick={() => chartType = 'line'}
-			class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {chartType === 'line' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-			style="{chartType === 'line' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+			class="filter-tab {chartType === 'line' ? 'filter-tab-active' : ''}"
 		>
 			<svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
@@ -391,8 +390,7 @@
 		</button>
 		<button
 			onclick={() => chartType = 'bar'}
-			class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {chartType === 'bar' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
-			style="{chartType === 'bar' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
+			class="filter-tab {chartType === 'bar' ? 'filter-tab-active' : ''}"
 		>
 			<svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -414,3 +412,37 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.filter-tab {
+		padding: 0.5rem 1rem;
+		border-radius: 0.5rem;
+		font-weight: 500;
+		transition: all 0.2s ease;
+		background: var(--color-bg-secondary);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-primary);
+		cursor: pointer;
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.filter-tab:hover {
+		background: var(--color-surface-hover);
+		border-color: var(--color-border-primary);
+	}
+
+	.filter-tab-active {
+		background: #4f46e5 !important;
+		color: white !important;
+		border-color: #4f46e5 !important;
+		font-weight: 600;
+		box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+	}
+
+	.filter-tab-active:hover {
+		background: #4338ca !important;
+		border-color: #4338ca !important;
+	}
+</style>

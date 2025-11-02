@@ -137,24 +137,25 @@
 {:else}
 	<div class="flex flex-col min-h-screen transition-colors duration-300" style="background: var(--color-bg-secondary);">
 		<!-- Header -->
-		<header class="header-container z-40 bg-gradient-to-r from-indigo-600 to-purple-700 shadow-lg">
+		<header class="header-container z-40" style="background: transparent;">
 			<div class="header-accent"></div>
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between py-6">
 					<h1 class="text-2xl font-bold flex items-center">
-						<span class="text-emerald-400 font-extrabold mr-3 text-3xl tracking-tight drop-shadow-sm">CA</span>
-						<span class="header-title text-white font-semibold tracking-wide drop-shadow-sm">
+						<span class="font-extrabold mr-3 text-3xl tracking-tight" style="color: var(--color-text-primary);">CA</span>
+						<span class="header-title font-semibold tracking-wide" style="color: var(--color-text-primary);">
 							Congregation Accounts
 						</span>
 					</h1>
 					<div class="flex items-center space-x-4">
 						<div class="hidden sm:block">
-							<span class="text-white/90 text-sm font-medium">Welcome back,</span>
-							<span class="text-white font-semibold ml-1 drop-shadow-sm">{formatUsername($user?.email)}</span>
+							<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Welcome back,</span>
+							<span class="font-semibold ml-1" style="color: var(--color-text-primary);">{formatUsername($user?.email)}</span>
 						</div>
 						<button 
 							onclick={handleSignOut}
-							class="bg-white/10 hover:bg-white/20 text-white p-3 rounded-lg font-medium transition-all duration-200 border border-white/20 hover:border-white/30 backdrop-blur-sm shadow-sm"
+							class="sign-out-button p-3 rounded-lg font-medium transition-all duration-200 border backdrop-blur-sm shadow-sm"
+							style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
 							title="Sign Out"
 							aria-label="Sign Out"
 						>
@@ -261,9 +262,8 @@
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 	}
 
-	.header-title {
-		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-		filter: brightness(1.1);
+	.sign-out-button:hover {
+		background: var(--color-surface-hover) !important;
 	}
 
 	/* Custom scrollbar for better UX */
