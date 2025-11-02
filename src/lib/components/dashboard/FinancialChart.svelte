@@ -38,91 +38,85 @@
 		return category.toLowerCase().includes('worldwide work');
 	}
 
-	// Process income data - return individual transactions split by category
+	// Process income data - separate local congregation and worldwide work donations
 	function processIncomeData(transactions: Transaction[]) {
 		const incomeTransactions = transactions
 			.filter(t => t.type === 'income')
 			.sort((a, b) => a.date.localeCompare(b.date));
-		
+
+		const localDonations = incomeTransactions.filter(t => isLocalCategory(t.category));
+		const worldwideDonations = incomeTransactions.filter(t => isWorldwideCategory(t.category));
+
 		return {
-			lce: incomeTransactions.filter(t => isLocalCategory(t.category)),
-			www: incomeTransactions.filter(t => isWorldwideCategory(t.category))
+			local: localDonations,
+			worldwide: worldwideDonations,
+			all: incomeTransactions
 		};
 	}
 
-	// Process expense data - return individual transactions split by category
+	// Process expense data - separate local congregation and worldwide work expenses
 	function processExpenseData(transactions: Transaction[]) {
 		const expenseTransactions = transactions
 			.filter(t => t.type === 'expense')
 			.sort((a, b) => a.date.localeCompare(b.date));
-		
-		return {
-			lce: expenseTransactions.filter(t => isLocalCategory(t.category)),
-			www: expenseTransactions.filter(t => isWorldwideCategory(t.category))
-		};
-	}
 
-	// Get all unique dates from transactions and create aligned data arrays
-	function createAlignedData(lceTransactions: Transaction[], wwwTransactions: Transaction[]) {
-		// Get all unique dates
-		const allDates = new Set<string>();
-		lceTransactions.forEach(t => allDates.add(t.date));
-		wwwTransactions.forEach(t => allDates.add(t.date));
-		const sortedDates = Array.from(allDates).sort();
-		
-		// Create maps for quick lookup
-		const lceMap = new Map<string, Transaction[]>();
-		const wwwMap = new Map<string, Transaction[]>();
-		
-		lceTransactions.forEach(t => {
-			if (!lceMap.has(t.date)) {
-				lceMap.set(t.date, []);
-			}
-			lceMap.get(t.date)!.push(t);
-		});
-		
-		wwwTransactions.forEach(t => {
-			if (!wwwMap.has(t.date)) {
-				wwwMap.set(t.date, []);
-			}
-			wwwMap.get(t.date)!.push(t);
-		});
-		
-		// Create aligned arrays
-		const labels = sortedDates.map(dateStr => {
-			const date = new Date(dateStr);
-			return `${date.getMonth() + 1}/${date.getDate()}`;
-		});
-		
-		const lceData = sortedDates.map(dateStr => {
-			const transactions = lceMap.get(dateStr) || [];
-			return transactions.reduce((sum, t) => sum + t.amount, 0);
-		});
-		
-		const wwwData = sortedDates.map(dateStr => {
-			const transactions = wwwMap.get(dateStr) || [];
-			return transactions.reduce((sum, t) => sum + t.amount, 0);
-		});
-		
-		const tooltips = sortedDates.map(dateStr => {
-			const lce = lceMap.get(dateStr) || [];
-			const www = wwwMap.get(dateStr) || [];
-			const all = [...lce, ...www];
-			if (all.length === 1) {
-				return `${dateStr} - ${all[0].description}`;
-			}
-			return `${dateStr} - ${all.length} transactions`;
-		});
-		
-		return { labels, lceData, wwwData, tooltips };
+		const localExpenses = expenseTransactions.filter(t => isLocalCategory(t.category));
+		const worldwideExpenses = expenseTransactions.filter(t => isWorldwideCategory(t.category));
+
+		return {
+			local: localExpenses,
+			worldwide: worldwideExpenses,
+			all: expenseTransactions
+		};
 	}
 
 	// Create or update income chart
 	function updateIncomeChart() {
 		if (!incomeCanvasRef) return;
 
-		const { lce, www } = processIncomeData(transactions);
-		const { labels, lceData, wwwData, tooltips } = createAlignedData(lce, www);
+		const incomeData = processIncomeData(transactions);
+		
+		// Get all unique dates from both local and worldwide donations
+		const allDates = [...new Set([
+			...incomeData.local.map((t: Transaction) => t.date),
+			...incomeData.worldwide.map((t: Transaction) => t.date)
+		])].sort();
+
+		const labels = allDates.map(date => {
+			const d = new Date(date);
+			return `${d.getMonth() + 1}/${d.getDate()}`;
+		});
+
+		// Create data arrays for each category, filling missing dates with 0
+		const localData = allDates.map(date => {
+			const transaction = incomeData.local.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		const worldwideData = allDates.map(date => {
+			const transaction = incomeData.worldwide.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		// Create tooltip labels
+		const tooltipLabels = allDates.map(date => {
+			const localTransaction = incomeData.local.find(t => t.date === date);
+			const worldwideTransaction = incomeData.worldwide.find(t => t.date === date);
+			
+			// Format date to be shorter (MM/DD)
+			const d = new Date(date);
+			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
+			
+			let tooltip = shortDate;
+			if (localTransaction && worldwideTransaction) {
+				tooltip = `${shortDate} - Donations`;
+			} else if (localTransaction) {
+				tooltip = `${shortDate} - Local`;
+			} else if (worldwideTransaction) {
+				tooltip = `${shortDate} - Worldwide`;
+			}
+			return tooltip;
+		});
 
 		// Destroy existing chart if it exists
 		if (incomeChartInstance) {
@@ -140,7 +134,7 @@
 				datasets: [
 					{
 						label: 'LCE',
-						data: lceData,
+						data: localData,
 						backgroundColor: chartType === 'bar' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(34, 197, 94, 0.2)',
 						borderColor: 'rgba(34, 197, 94, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
@@ -149,7 +143,7 @@
 					},
 					{
 						label: 'WWW',
-						data: wwwData,
+						data: worldwideData,
 						backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.2)',
 						borderColor: 'rgba(59, 130, 246, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
@@ -220,8 +214,49 @@
 	function updateExpenseChart() {
 		if (!expenseCanvasRef) return;
 
-		const { lce, www } = processExpenseData(transactions);
-		const { labels, lceData, wwwData, tooltips } = createAlignedData(lce, www);
+		const expenseData = processExpenseData(transactions);
+		
+		// Get all unique dates from both local and worldwide expenses
+		const allDates = [...new Set([
+			...expenseData.local.map((t: Transaction) => t.date),
+			...expenseData.worldwide.map((t: Transaction) => t.date)
+		])].sort();
+
+		const labels = allDates.map(date => {
+			const d = new Date(date);
+			return `${d.getMonth() + 1}/${d.getDate()}`;
+		});
+
+		// Create data arrays for each category, filling missing dates with 0
+		const localData = allDates.map(date => {
+			const transaction = expenseData.local.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		const worldwideData = allDates.map(date => {
+			const transaction = expenseData.worldwide.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		// Create tooltip labels
+		const tooltipLabels = allDates.map(date => {
+			const localTransaction = expenseData.local.find(t => t.date === date);
+			const worldwideTransaction = expenseData.worldwide.find(t => t.date === date);
+			
+			// Format date to be shorter (MM/DD)
+			const d = new Date(date);
+			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
+			
+			let tooltip = shortDate;
+			if (localTransaction && worldwideTransaction) {
+				tooltip = `${shortDate} - Expenses`;
+			} else if (localTransaction) {
+				tooltip = `${shortDate} - Local`;
+			} else if (worldwideTransaction) {
+				tooltip = `${shortDate} - Worldwide`;
+			}
+			return tooltip;
+		});
 
 		// Destroy existing chart if it exists
 		if (expenseChartInstance) {
@@ -239,7 +274,7 @@
 				datasets: [
 					{
 						label: 'LCE',
-						data: lceData,
+						data: localData,
 						backgroundColor: chartType === 'bar' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.2)',
 						borderColor: 'rgba(239, 68, 68, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
@@ -248,9 +283,9 @@
 					},
 					{
 						label: 'WWW',
-						data: wwwData,
-						backgroundColor: chartType === 'bar' ? 'rgba(251, 146, 60, 0.7)' : 'rgba(251, 146, 60, 0.2)',
-						borderColor: 'rgba(251, 146, 60, 1)',
+						data: worldwideData,
+						backgroundColor: chartType === 'bar' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(168, 85, 247, 0.2)',
+						borderColor: 'rgba(168, 85, 247, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
 						tension: 0.4,
 						fill: chartType === 'line'

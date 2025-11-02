@@ -1,670 +1,352 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { theme } from '$lib/stores/theme';
-	import type { Theme } from '$lib/stores/theme';
 	
-	// Settings state
-	let settings = {
-		congregationName: 'Bolaoen Congregation',
-		currency: 'PHP',
-		language: 'en',
-		theme: 'auto' as Theme,
-		notifications: true,
-		autoBackup: true,
-		exportFormat: 'csv'
-	};
-
-	let tempSettings = { ...settings };
-	let hasChanges = false;
-	let saving = false;
-
-	// Initialize settings from localStorage and theme store
-	onMount(() => {
-		const savedSettings = localStorage.getItem('congregationSettings');
-		if (savedSettings) {
-			try {
-				const parsed = JSON.parse(savedSettings);
-				settings = { ...settings, ...parsed };
-				tempSettings = { ...settings };
-			} catch (error) {
-				console.error('Failed to parse saved settings:', error);
-			}
+	// Help sections state
+	let activeSection = $state('getting-started');
+	let searchQuery = $state('');
+	let filteredSections = $state<typeof helpSections>([]);
+	
+	// Help sections data
+	const helpSections = [
+		{
+			id: 'getting-started',
+			title: 'Getting Started',
+			icon: '🚀',
+			description: 'Learn the basics of using Congregation Accounts',
+			content: [
+				{
+					title: 'Welcome to Congregation Accounts',
+					content: 'Congregation Accounts is a comprehensive financial management system designed specifically for congregations. It helps you track donations, manage expenses, and maintain accurate financial records.',
+					type: 'info'
+				},
+				{
+					title: 'First Steps',
+					content: '1. Sign up for an account using your email\n2. Set up your congregation information\n3. Add your first transaction\n4. Explore the dashboard and charts',
+					type: 'steps'
+				},
+				{
+					title: 'Key Features',
+					content: '• Financial Dashboard with visual charts\n• Transaction management (income & expenses)\n• Category-based organization\n• Monthly financial reports\n• Data export capabilities\n• Secure cloud storage',
+					type: 'features'
+				}
+			]
+		},
+		{
+			id: 'dashboard',
+			title: 'Dashboard Guide',
+			icon: '📊',
+			description: 'Understanding your financial dashboard',
+			content: [
+				{
+					title: 'Financial Overview Chart',
+					content: 'The main chart displays your financial data with two distinct series:\n\n• Green bars/lines: Local Congregation donations\n• Blue bars/lines: Worldwide Work donations\n\nYou can switch between bar and line chart views using the toggle buttons.',
+					type: 'chart'
+				},
+				{
+					title: 'Monthly Balance Card',
+					content: 'Shows your current month\'s financial status:\n• Opening balance\n• Total income\n• Total expenses\n• Net balance\n\nClick "Set Opening Balance" to add a starting balance for the month.',
+					type: 'balance'
+				},
+				{
+					title: 'Category Breakdown',
+					content: 'Displays separate totals for:\n• Local Congregation (donations & expenses)\n• Worldwide Work (donations & expenses)\n\nEach category shows donations (+), expenses (-), and net balance.',
+					type: 'breakdown'
+				},
+				{
+					title: 'Month Picker',
+					content: 'Use the month picker to:\n• View data for specific months\n• Select "All" to see all-time data\n• Navigate between different time periods',
+					type: 'picker'
+				}
+			]
+		},
+		{
+			id: 'transactions',
+			title: 'Managing Transactions',
+			icon: '💰',
+			description: 'How to add, edit, and manage transactions',
+			content: [
+				{
+					title: 'Adding Transactions',
+					content: '1. Click the "Add Transaction" button\n2. Fill in the transaction details:\n   • Date (defaults to today)\n   • Description\n   • Category (select from dropdown)\n   • Amount\n   • Type (Income/Expense)\n3. Click "Add Transaction" to save',
+					type: 'steps'
+				},
+				{
+					title: 'Transaction Categories',
+					content: 'Available categories:\n\nLocal Congregation:\n• Local Congregation Donations\n• Local Congregation Expenses\n\nWorldwide Work:\n• Worldwide Work Donations\n• Worldwide Work Expenses',
+					type: 'categories'
+				},
+				{
+					title: 'Editing Transactions',
+					content: '1. Find the transaction in the list\n2. Click the edit icon (pencil)\n3. Modify the details\n4. Click "Update Transaction" to save changes',
+					type: 'steps'
+				},
+				{
+					title: 'Deleting Transactions',
+					content: '1. Find the transaction in the list\n2. Click the delete icon (trash)\n3. Confirm the deletion in the popup\n\n⚠️ Warning: Deleted transactions cannot be recovered.',
+					type: 'warning'
+				},
+				{
+					title: 'Filtering Transactions',
+					content: 'Use the filter buttons to view:\n• All transactions\n• Donations only\n• Expenses only\n\nThis helps you focus on specific types of financial activity.',
+					type: 'filter'
+				}
+			]
+		},
+		{
+			id: 'charts',
+			title: 'Understanding Charts',
+			icon: '📈',
+			description: 'How to read and use the financial charts',
+			content: [
+				{
+					title: 'Chart Types',
+					content: 'Two chart types available:\n\n• Line Chart: Shows trends over time with smooth lines\n• Bar Chart: Displays individual transaction amounts as bars\n\nSwitch between types using the toggle buttons.',
+					type: 'types'
+				},
+				{
+					title: 'Color Coding',
+					content: 'Charts use distinct colors for easy identification:\n\nDonations:\n• 🟢 Green: Local Congregation Donations\n• 🔵 Blue: Worldwide Work Donations\n\nExpenses:\n• 🔴 Red: Local Congregation Expenses\n• 🟣 Purple: Worldwide Work Expenses',
+					type: 'colors'
+				},
+				{
+					title: 'Reading the Charts',
+					content: '• X-axis: Shows dates (month/day format)\n• Y-axis: Shows amounts in your currency\n• Hover over data points for detailed information\n• Legend shows what each color represents',
+					type: 'reading'
+				},
+				{
+					title: 'Chart Interactions',
+					content: '• Hover over data points to see transaction details\n• Use the month picker to change the time period\n• Switch between line and bar views\n• Charts automatically update when you add new transactions',
+					type: 'interactions'
+				}
+			]
+		},
+		{
+			id: 'troubleshooting',
+			title: 'Troubleshooting',
+			icon: '🔧',
+			description: 'Common issues and solutions',
+			content: [
+				{
+					title: 'Login Issues',
+					content: 'If you can\'t log in:\n\n• Check your email and password\n• Ensure caps lock is off\n• Try resetting your password\n• Clear browser cache and cookies\n• Contact support if problems persist',
+					type: 'login'
+				},
+				{
+					title: 'Data Not Loading',
+					content: 'If data doesn\'t appear:\n\n• Check your internet connection\n• Refresh the page\n• Clear browser cache\n• Try logging out and back in\n• Check if you have any transactions for the selected month',
+					type: 'loading'
+				},
+				{
+					title: 'Chart Display Issues',
+					content: 'If charts don\'t show properly:\n\n• Ensure you have transactions in the selected month\n• Try switching between chart types\n• Check your browser\'s JavaScript is enabled\n• Try a different browser\n• Clear browser cache',
+					type: 'charts'
+				},
+				{
+					title: 'Performance Issues',
+					content: 'If the app runs slowly:\n\n• Close unnecessary browser tabs\n• Clear browser cache\n• Check your internet connection\n• Restart your browser\n• Try using a different browser',
+					type: 'performance'
+				},
+				{
+					title: 'Mobile Issues',
+					content: 'For mobile users:\n\n• Use a modern mobile browser\n• Ensure you have a stable internet connection\n• Try rotating your device for better viewing\n• Use the PWA (Progressive Web App) version if available',
+					type: 'mobile'
+				}
+			]
+		},
+		{
+			id: 'tips',
+			title: 'Tips & Best Practices',
+			icon: '💡',
+			description: 'Expert tips for better financial management',
+			content: [
+				{
+					title: 'Regular Data Entry',
+					content: 'Best practices:\n\n• Enter transactions daily or weekly\n• Don\'t let data pile up\n• Review entries for accuracy\n• Set aside time for regular updates',
+					type: 'regular'
+				},
+				{
+					title: 'Category Organization',
+					content: 'Organize your finances:\n\n• Use consistent category names\n• Separate local and worldwide work\n• Add detailed descriptions\n• Review categories regularly',
+					type: 'organization'
+				},
+				{
+					title: 'Monthly Reviews',
+					content: 'Conduct monthly reviews:\n\n• Check opening balances\n• Verify all transactions\n• Review category totals\n• Export monthly reports\n• Plan for the next month',
+					type: 'reviews'
+				},
+				{
+					title: 'Security Tips',
+					content: 'Keep your data secure:\n\n• Use strong passwords\n• Log out when finished\n• Don\'t share login credentials\n• Regular data backups\n• Use secure networks',
+					type: 'security'
+				},
+				{
+					title: 'Efficiency Tips',
+					content: 'Work more efficiently:\n\n• Use keyboard shortcuts\n• Bookmark the app\n• Set up recurring transactions\n• Use filters to find data quickly\n• Take advantage of the search function',
+					type: 'efficiency'
+				}
+			]
 		}
-		
-		// Subscribe to theme store
-		const unsubscribe = theme.subscribe(currentTheme => {
-			tempSettings.theme = currentTheme;
-			if (!hasChanges) {
-				settings.theme = currentTheme;
-			}
-		});
-		
-		return unsubscribe;
+	];
+
+	// Initialize filtered sections
+	$effect(() => {
+		if (searchQuery.trim() === '') {
+			filteredSections = helpSections;
+		} else {
+			filteredSections = helpSections.filter(section => 
+				section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				section.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				section.content.some(item => 
+					item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+					item.content.toLowerCase().includes(searchQuery.toLowerCase())
+				)
+			);
+		}
 	});
 
-	// Watch for changes
-	$: hasChanges = JSON.stringify(settings) !== JSON.stringify(tempSettings);
+	// Set initial filtered sections
+	onMount(() => {
+		filteredSections = helpSections;
+	});
 
-	// Update theme when changed
-	$: if (tempSettings.theme !== $theme) {
-		theme.setTheme(tempSettings.theme);
-	}
-
-	async function saveSettings() {
-		saving = true;
-		try {
-			// Simulate a brief delay for better UX
-			await new Promise(resolve => setTimeout(resolve, 500));
-			
-			settings = { ...tempSettings };
-			hasChanges = false;
-			
-			// Save to localStorage
-			localStorage.setItem('congregationSettings', JSON.stringify(settings));
-			
-			// Update theme
-			theme.setTheme(settings.theme);
-			
-			// Show success notification
-			showNotification('Settings saved successfully!', 'success');
-		} catch (error) {
-			console.error('Failed to save settings:', error);
-			showNotification('Failed to save settings. Please try again.', 'error');
-		} finally {
-			saving = false;
+	function scrollToSection(sectionId: string) {
+		activeSection = sectionId;
+		const element = document.getElementById(sectionId);
+		if (element) {
+			element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		}
 	}
 
-	function resetSettings() {
-		tempSettings = { ...settings };
-		hasChanges = false;
-	}
-
-	function exportData() {
-		try {
-			const data = {
-				settings,
-				exportDate: new Date().toISOString(),
-				version: '1.0'
-			};
-			
-			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `congregation-backup-${new Date().toISOString().split('T')[0]}.json`;
-			a.click();
-			URL.revokeObjectURL(url);
-			
-			showNotification('Data exported successfully!', 'success');
-		} catch (error) {
-			console.error('Export failed:', error);
-			showNotification('Failed to export data. Please try again.', 'error');
-		}
-	}
-
-	function importData() {
-		const input = document.createElement('input');
-		input.type = 'file';
-		input.accept = '.json';
-		input.onchange = (e) => {
-			const file = (e.target as HTMLInputElement).files?.[0];
-			if (file) {
-				const reader = new FileReader();
-				reader.onload = (e) => {
-					try {
-						const data = JSON.parse(e.target?.result as string);
-						if (data.settings) {
-							tempSettings = { ...data.settings };
-							showNotification('Data imported successfully! Don\'t forget to save your settings.', 'success');
-						} else {
-							showNotification('Invalid backup file format.', 'error');
-						}
-					} catch (error) {
-						console.error('Import failed:', error);
-						showNotification('Error reading backup file.', 'error');
-					}
-				};
-				reader.readAsText(file);
-			}
-		};
-		input.click();
-	}
-
-	function clearAllData() {
-		if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-			if (confirm('This will permanently delete all transactions and settings. Are you absolutely sure?')) {
-				localStorage.clear();
-				tempSettings = {
-					congregationName: '',
-					currency: 'PHP',
-					language: 'en',
-					theme: 'auto',
-					notifications: true,
-					autoBackup: true,
-					exportFormat: 'csv'
-				};
-				showNotification('All data has been cleared.', 'success');
-			}
-		}
-	}
-
-	// Notification system
-	let notifications: Array<{id: number, message: string, type: 'success' | 'error' | 'info', visible: boolean}> = [];
-	let notificationId = 0;
-
-	function showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
-		const id = notificationId++;
-		const notification = { id, message, type, visible: true };
-		notifications = [...notifications, notification];
-		
-		// Auto-remove after 5 seconds
-		setTimeout(() => {
-			notification.visible = false;
-			notifications = notifications.map(n => n.id === id ? notification : n);
-			
-			// Remove from array after animation
-			setTimeout(() => {
-				notifications = notifications.filter(n => n.id !== id);
-			}, 300);
-		}, 5000);
-	}
-
-	function removeNotification(id: number) {
-		notifications = notifications.map(n => 
-			n.id === id ? { ...n, visible: false } : n
-		);
-		
-		setTimeout(() => {
-			notifications = notifications.filter(n => n.id !== id);
-		}, 300);
+	function clearSearch() {
+		searchQuery = '';
 	}
 </script>
 
-<!-- Notifications -->
-{#if notifications.length > 0}
-	<div class="fixed top-4 right-4 z-50 space-y-2">
-		{#each notifications as notification (notification.id)}
-			<div 
-				class="notification {notification.type} {notification.visible ? 'show' : 'hide'}"
-				role="alert"
-			>
-				<div class="flex items-center justify-between">
-					<div class="flex items-center">
-						<div class="notification-icon">
-							{#if notification.type === 'success'}
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-								</svg>
-							{:else if notification.type === 'error'}
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-								</svg>
-							{:else}
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-								</svg>
-							{/if}
-						</div>
-						<span class="notification-message">{notification.message}</span>
-					</div>
-					<button 
-						class="notification-close"
-						on:click={() => removeNotification(notification.id)}
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-						</svg>
-					</button>
-				</div>
-			</div>
-		{/each}
-	</div>
-{/if}
+<svelte:head>
+	<title>Help & Support - Congregation Accounts</title>
+	<meta name="description" content="Comprehensive help guide for Congregation Accounts - Learn how to manage your congregation's finances effectively.">
+</svelte:head>
 
-<div class="settings-container">
+<div class="help-container">
 	<!-- Header -->
-	<div class="settings-header">
+	<div class="help-header">
 		<div class="header-content">
 			<div class="header-text">
 				<h1 class="header-title">
-					<span class="header-icon">⚙️</span>
-					Settings
+					<span class="header-icon">❓</span>
+					Help & Support
 				</h1>
-				<p class="header-subtitle">Manage your congregation account preferences</p>
+				<p class="header-subtitle">Everything you need to know about using Congregation Accounts</p>
 			</div>
 			
-			{#if hasChanges}
-				<div class="header-actions">
-					<button 
-						class="btn btn-secondary" 
-						on:click={resetSettings}
-						disabled={saving}
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+			<!-- Search Bar -->
+			<div class="search-container">
+				<div class="search-input-group">
+					<input
+						type="text"
+						placeholder="Search help topics..."
+						bind:value={searchQuery}
+						class="search-input"
+					/>
+					<div class="search-icon">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
 						</svg>
-						Reset Changes
-					</button>
-					<button 
-						class="btn btn-primary" 
-						on:click={saveSettings}
-						disabled={saving}
-					>
-						{#if saving}
-							<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-							</svg>
-							Saving...
-						{:else}
+					</div>
+					{#if searchQuery}
+						<button onclick={clearSearch} class="search-clear" aria-label="Clear search">
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
 							</svg>
-							Save Settings
-						{/if}
-					</button>
+						</button>
+					{/if}
 				</div>
-			{/if}
+			</div>
 		</div>
 	</div>
 
-	<!-- Settings Content -->
-	<div class="settings-content">
-		<!-- General Settings -->
-		<section class="settings-section">
-			<div class="section-header">
-				<h2 class="section-title">
-					<span class="section-icon">🏛️</span>
-					General Settings
-				</h2>
-				<p class="section-description">Basic configuration for your congregation</p>
+	<!-- Main Content -->
+	<div class="help-content">
+		<!-- Sidebar Navigation -->
+		<nav class="help-sidebar">
+			<div class="sidebar-header">
+				<h3 class="sidebar-title">Help Topics</h3>
+				<p class="sidebar-subtitle">{filteredSections.length} topics available</p>
 			</div>
 			
-			<div class="settings-grid">
-				<div class="setting-group">
-					<label for="congregationName" class="setting-label">
-						Congregation Name
-						<span class="label-required">*</span>
-					</label>
-					<div class="input-group">
-						<input
-							id="congregationName"
-							type="text"
-							class="setting-input"
-							bind:value={tempSettings.congregationName}
-							placeholder="Enter congregation name"
-							required
-						/>
-						<div class="input-icon">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-							</svg>
+			<div class="sidebar-nav">
+				{#each filteredSections as section}
+					<button
+						onclick={() => scrollToSection(section.id)}
+						class="nav-item {activeSection === section.id ? 'active' : ''}"
+					>
+						<span class="nav-icon">{section.icon}</span>
+						<div class="nav-content">
+							<span class="nav-title">{section.title}</span>
+							<span class="nav-description">{section.description}</span>
 						</div>
-					</div>
-				</div>
-
-				<div class="setting-group">
-					<label for="currency" class="setting-label">
-						Default Currency
-					</label>
-					<div class="select-group">
-						<select id="currency" class="setting-select" bind:value={tempSettings.currency}>
-							<option value="PHP">🇵🇭 PHP - Philippine Peso</option>
-							</select>
-						<div class="select-icon">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
-						</div>
-					</div>
-				</div>
-
-				<div class="setting-group">
-					<label for="language" class="setting-label">
-						Language
-					</label>
-					<div class="select-group">
-						<select id="language" class="setting-select" bind:value={tempSettings.language}>
-							<option value="en">🇺🇸 English</option>
-							<option value="es">🇪🇸 Español</option>
-							<option value="fr">🇫🇷 Français</option>
-							<option value="de">🇩🇪 Deutsch</option>
-							<option value="pt">🇵🇹 Português</option>
-							<option value="it">🇮🇹 Italiano</option>
-						</select>
-						<div class="select-icon">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
-						</div>
-					</div>
-				</div>
-
-				<div class="setting-group">
-					<label for="theme" class="setting-label">
-						Theme Preference
-					</label>
-					<div class="select-group">
-						<select id="theme" class="setting-select" bind:value={tempSettings.theme}>
-							<option value="light">☀️ Light Mode</option>
-							<option value="dark">🌙 Dark Mode</option>
-							<option value="auto">🔄 Auto (System)</option>
-						</select>
-						<div class="select-icon">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
-						</div>
-					</div>
-					<p class="setting-help">Choose your preferred color scheme</p>
-				</div>
-			</div>
-		</section>
-
-		<!-- Preferences -->
-		<section class="settings-section">
-			<div class="section-header">
-				<h2 class="section-title">
-					<span class="section-icon">🎛️</span>
-					Preferences
-				</h2>
-				<p class="section-description">Customize your experience</p>
-			</div>
-			
-			<div class="settings-grid">
-				<div class="setting-group">
-					<label for="exportFormat" class="setting-label">
-						Default Export Format
-					</label>
-					<div class="select-group">
-						<select id="exportFormat" class="setting-select" bind:value={tempSettings.exportFormat}>
-							<option value="csv">📊 CSV (Spreadsheet)</option>
-							<option value="json">📋 JSON (Data)</option>
-							<option value="pdf">📄 PDF (Document)</option>
-						</select>
-						<div class="select-icon">
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
-						</div>
-					</div>
-				</div>
-
-				<div class="setting-group col-span-full">
-					<div class="toggle-group">
-						<label class="toggle-setting">
-							<input
-								type="checkbox"
-								class="toggle-input"
-								bind:checked={tempSettings.notifications}
-							/>
-							<div class="toggle-switch">
-								<div class="toggle-thumb"></div>
-							</div>
-							<div class="toggle-content">
-								<span class="toggle-title">Enable Notifications</span>
-								<span class="toggle-description">Get notified about important updates and reminders</span>
-							</div>
-						</label>
-					</div>
-
-					<div class="toggle-group">
-						<label class="toggle-setting">
-							<input
-								type="checkbox"
-								class="toggle-input"
-								bind:checked={tempSettings.autoBackup}
-							/>
-							<div class="toggle-switch">
-								<div class="toggle-thumb"></div>
-							</div>
-							<div class="toggle-content">
-								<span class="toggle-title">Auto Backup</span>
-								<span class="toggle-description">Automatically backup your data weekly</span>
-							</div>
-						</label>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<!-- Data Management -->
-		<section class="settings-section">
-			<div class="section-header">
-				<h2 class="section-title">
-					<span class="section-icon">💾</span>
-					Data Management
-				</h2>
-				<p class="section-description">Import, export, and manage your data</p>
-			</div>
-			
-			<div class="data-actions">
-				<div class="action-card">
-					<div class="action-icon success">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-						</svg>
-					</div>
-					<div class="action-content">
-						<h3 class="action-title">Export Data</h3>
-						<p class="action-description">Download a backup of all your congregation data</p>
-					</div>
-					<button class="btn btn-success" on:click={exportData}>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-						</svg>
-						Export
 					</button>
-				</div>
-
-				<div class="action-card">
-					<div class="action-icon info">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
-						</svg>
-					</div>
-					<div class="action-content">
-						<h3 class="action-title">Import Data</h3>
-						<p class="action-description">Restore data from a previous backup file</p>
-					</div>
-					<button class="btn btn-info" on:click={importData}>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
-						</svg>
-						Import
-					</button>
-				</div>
-
-				<div class="action-card danger">
-					<div class="action-icon danger">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-						</svg>
-					</div>
-					<div class="action-content">
-						<h3 class="action-title">Clear All Data</h3>
-						<p class="action-description">Permanently delete all transactions and settings</p>
-					</div>
-					<button class="btn btn-danger" on:click={clearAllData}>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-						</svg>
-						Clear All
-					</button>
-				</div>
+				{/each}
 			</div>
-		</section>
+		</nav>
 
-		<!-- About -->
-		<section class="settings-section">
-			<div class="section-header">
-				<h2 class="section-title">
-					<span class="section-icon">ℹ️</span>
-					About
-				</h2>
-				<p class="section-description">Application information</p>
-			</div>
-			
-			<div class="about-grid">
-				<div class="about-item">
-					<div class="about-icon">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-						</svg>
+		<!-- Help Content -->
+		<main class="help-main">
+			{#each filteredSections as section}
+				<section id={section.id} class="help-section">
+					<div class="section-header">
+						<h2 class="section-title">
+							<span class="section-icon">{section.icon}</span>
+							{section.title}
+						</h2>
+						<p class="section-description">{section.description}</p>
 					</div>
-					<div class="about-content">
-						<span class="about-label">Application</span>
-						<span class="about-value">Congregation Accounts Manager</span>
+					
+					<div class="section-content">
+						{#each section.content as item}
+							<div class="help-item {item.type}">
+								<h3 class="item-title">{item.title}</h3>
+								<div class="item-content">
+									{#if item.type === 'steps'}
+										<ol class="steps-list">
+											{#each item.content.split('\n').filter((line: string) => line.trim()) as step}
+												<li class="step-item">{step.replace(/^\d+\.\s*/, '')}</li>
+											{/each}
+										</ol>
+									{:else if item.type === 'features'}
+										<ul class="features-list">
+											{#each item.content.split('\n').filter((line: string) => line.trim()) as feature}
+												<li class="feature-item">{feature.replace(/^[•\-]\s*/, '')}</li>
+											{/each}
+										</ul>
+									{:else if item.type === 'categories'}
+										<div class="categories-content">
+											{#each item.content.split('\n\n') as categoryGroup}
+												<div class="category-group">
+													{#each categoryGroup.split('\n').filter((line: string) => line.trim()) as category}
+														<div class="category-item">{category.replace(/^[•\-]\s*/, '')}</div>
+													{/each}
+												</div>
+											{/each}
+										</div>
+									{:else}
+										<p class="item-text">{item.content}</p>
+									{/if}
+								</div>
+							</div>
+						{/each}
 					</div>
-				</div>
+				</section>
+			{/each}
 
-				<div class="about-item">
-					<div class="about-icon">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-						</svg>
-					</div>
-					<div class="about-content">
-						<span class="about-label">Version</span>
-						<span class="about-value">1.0.0</span>
-					</div>
-				</div>
-
-				<div class="about-item">
-					<div class="about-icon">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-						</svg>
-					</div>
-					<div class="about-content">
-						<span class="about-label">Built with</span>
-						<span class="about-value">SvelteKit & Modern CSS</span>
-					</div>
-				</div>
-
-				<div class="about-item">
-					<div class="about-icon">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-						</svg>
-					</div>
-					<div class="about-content">
-						<span class="about-label">Purpose</span>
-						<span class="about-value">Manage congregation financial records</span>
-					</div>
-				</div>
-			</div>
-		</section>
+		</main>
 	</div>
 </div>
 
 <style>
-	/* ========== Notifications ========== */
-	.notification {
-		max-width: 24rem;
-		padding: 1rem;
-		border-radius: 0.75rem;
-		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-		backdrop-filter: blur(8px);
-		border: 1px solid;
-		transition: all 0.3s ease-in-out;
-		background: var(--color-glass-bg);
-		border-color: var(--color-border-primary);
-	}
-
-	.notification.show {
-		opacity: 1;
-		transform: translateX(0);
-	}
-
-	.notification.hide {
-		opacity: 0;
-		transform: translateX(100%);
-	}
-
-	.notification.success {
-		border-color: #bbf7d0;
-		background-color: #f0fdf4;
-		color: var(--color-text-primary);
-	}
-
-	.notification.error {
-		border-color: #fecaca;
-		background-color: #fef2f2;
-		color: var(--color-text-primary);
-	}
-
-	.notification.info {
-		border-color: #bfdbfe;
-		background-color: #eff6ff;
-		color: var(--color-text-primary);
-	}
-
-	:root.dark .notification.success {
-		border-color: #166534;
-		background-color: rgba(20, 83, 45, 0.5);
-	}
-
-	:root.dark .notification.error {
-		border-color: #991b1b;
-		background-color: rgba(127, 29, 29, 0.5);
-	}
-
-	:root.dark .notification.info {
-		border-color: #1e3a8a;
-		background-color: rgba(30, 58, 138, 0.5);
-	}
-
-	.notification-icon {
-		margin-right: 0.75rem;
-		flex-shrink: 0;
-	}
-
-	.notification.success .notification-icon {
-		color: #16a34a;
-	}
-
-	.notification.error .notification-icon {
-		color: #dc2626;
-	}
-
-	.notification.info .notification-icon {
-		color: #2563eb;
-	}
-
-	:root.dark .notification.success .notification-icon {
-		color: #4ade80;
-	}
-
-	:root.dark .notification.error .notification-icon {
-		color: #f87171;
-	}
-
-	:root.dark .notification.info .notification-icon {
-		color: #60a5fa;
-	}
-
-	.notification-message {
-		flex: 1;
-		font-size: 0.875rem;
-		font-weight: 500;
-	}
-
-	.notification-close {
-		margin-left: 0.75rem;
-		padding: 0.25rem;
-		border-radius: 0.375rem;
-		transition: background-color 0.2s;
-		color: var(--color-text-secondary);
-	}
-
-	.notification-close:hover {
-		background-color: rgba(0, 0, 0, 0.1);
-	}
-
 	/* ========== Main Container ========== */
-	.settings-container {
-		max-width: 64rem;
+	.help-container {
+		max-width: 80rem;
 		margin: 0 auto;
 		padding: 2rem 1rem;
 		display: flex;
@@ -675,7 +357,7 @@
 	}
 
 	/* ========== Header ========== */
-	.settings-header {
+	.help-header {
 		border-radius: 1rem;
 		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 		border: 1px solid;
@@ -722,16 +404,431 @@
 		color: var(--color-text-secondary);
 	}
 
-	.header-actions {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	/* ========== Search ========== */
+	.search-container {
+		min-width: 20rem;
 	}
 
-	@media (min-width: 640px) {
-		.header-actions {
-			flex-direction: row;
+	.search-input-group {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+
+	.search-input {
+		width: 100%;
+		padding: 0.75rem 3rem 0.75rem 1rem;
+		border-radius: 0.75rem;
+		border: 1px solid;
+		font-size: 0.875rem;
+		font-weight: 500;
+		transition: all 0.2s ease;
+		background: var(--color-bg-primary);
+		border-color: var(--color-border-primary);
+		color: var(--color-text-primary);
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: #4f46e5;
+		box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+	}
+
+	.search-icon {
+		position: absolute;
+		right: 0.75rem;
+		top: 50%;
+		transform: translateY(-50%);
+		pointer-events: none;
+		color: var(--color-text-tertiary);
+	}
+
+	.search-clear {
+		position: absolute;
+		right: 2.5rem;
+		top: 50%;
+		transform: translateY(-50%);
+		padding: 0.25rem;
+		border-radius: 0.375rem;
+		transition: background-color 0.2s;
+		color: var(--color-text-secondary);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+	}
+
+	.search-clear:hover {
+		background-color: rgba(0, 0, 0, 0.1);
+	}
+
+	/* ========== Main Content ========== */
+	.help-content {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 2rem;
+	}
+
+	@media (min-width: 1024px) {
+		.help-content {
+			grid-template-columns: 300px 1fr;
 		}
+	}
+
+	/* ========== Sidebar ========== */
+	.help-sidebar {
+		border-radius: 1rem;
+		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+		border: 1px solid;
+		padding: 1.5rem;
+		background: var(--color-glass-bg);
+		border-color: var(--color-glass-border);
+		backdrop-filter: blur(20px);
+		height: fit-content;
+		position: sticky;
+		top: 2rem;
+	}
+
+	.sidebar-header {
+		margin-bottom: 1.5rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid;
+		border-color: var(--color-border-primary);
+	}
+
+	.sidebar-title {
+		font-size: 1.125rem;
+		font-weight: 700;
+		margin-bottom: 0.25rem;
+		color: var(--color-text-primary);
+	}
+
+	.sidebar-subtitle {
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+	}
+
+	.sidebar-nav {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.nav-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border-radius: 0.75rem;
+		border: 1px solid transparent;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		background: transparent;
+		text-align: left;
+		width: 100%;
+	}
+
+	.nav-item:hover {
+		background: var(--color-surface-hover);
+		border-color: var(--color-border-primary);
+	}
+
+	.nav-item.active {
+		background: rgba(79, 70, 229, 0.1);
+		border-color: rgba(79, 70, 229, 0.3);
+		color: #4f46e5;
+	}
+
+	.nav-icon {
+		font-size: 1.25rem;
+		flex-shrink: 0;
+		margin-top: 0.125rem;
+	}
+
+	.nav-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.nav-title {
+		display: block;
+		font-weight: 600;
+		font-size: 0.875rem;
+		margin-bottom: 0.25rem;
+		color: var(--color-text-primary);
+	}
+
+	.nav-item.active .nav-title {
+		color: #4f46e5;
+	}
+
+	.nav-description {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		line-height: 1.4;
+	}
+
+	/* ========== Main Help Content ========== */
+	.help-main {
+		display: flex;
+		flex-direction: column;
+		gap: 2rem;
+	}
+
+	.help-section {
+		border-radius: 1rem;
+		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+		border: 1px solid;
+		padding: 2rem;
+		background: var(--color-glass-bg);
+		border-color: var(--color-glass-border);
+		backdrop-filter: blur(20px);
+	}
+
+	.section-header {
+		margin-bottom: 2rem;
+		padding-bottom: 1.5rem;
+		border-bottom: 1px solid;
+		border-color: var(--color-border-primary);
+	}
+
+	.section-title {
+		font-size: 1.5rem;
+		font-weight: 700;
+		margin-bottom: 0.5rem;
+		display: flex;
+		align-items: center;
+		color: var(--color-text-primary);
+	}
+
+	.section-icon {
+		font-size: 1.75rem;
+		margin-right: 0.75rem;
+	}
+
+	.section-description {
+		font-size: 1rem;
+		color: var(--color-text-secondary);
+	}
+
+	.section-content {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	/* ========== Help Items ========== */
+	.help-item {
+		padding: 1.5rem;
+		border-radius: 0.75rem;
+		border: 1px solid;
+		background: var(--color-bg-primary);
+		border-color: var(--color-border-primary);
+	}
+
+	.help-item.info {
+		border-left: 4px solid #3b82f6;
+		background: rgba(59, 130, 246, 0.05);
+	}
+
+	.help-item.warning {
+		border-left: 4px solid #f59e0b;
+		background: rgba(245, 158, 11, 0.05);
+	}
+
+	.help-item.steps {
+		border-left: 4px solid #10b981;
+		background: rgba(16, 185, 129, 0.05);
+	}
+
+	.help-item.features {
+		border-left: 4px solid #8b5cf6;
+		background: rgba(139, 92, 246, 0.05);
+	}
+
+	.help-item.chart {
+		border-left: 4px solid #06b6d4;
+		background: rgba(6, 182, 212, 0.05);
+	}
+
+	.help-item.balance {
+		border-left: 4px solid #84cc16;
+		background: rgba(132, 204, 22, 0.05);
+	}
+
+	.help-item.breakdown {
+		border-left: 4px solid #f97316;
+		background: rgba(249, 115, 22, 0.05);
+	}
+
+	.help-item.picker {
+		border-left: 4px solid #ec4899;
+		background: rgba(236, 72, 153, 0.05);
+	}
+
+	.help-item.categories {
+		border-left: 4px solid #6366f1;
+		background: rgba(99, 102, 241, 0.05);
+	}
+
+	.help-item.filter {
+		border-left: 4px solid #14b8a6;
+		background: rgba(20, 184, 166, 0.05);
+	}
+
+	.help-item.types {
+		border-left: 4px solid #a855f7;
+		background: rgba(168, 85, 247, 0.05);
+	}
+
+	.help-item.colors {
+		border-left: 4px solid #e11d48;
+		background: rgba(225, 29, 72, 0.05);
+	}
+
+	.help-item.reading {
+		border-left: 4px solid #059669;
+		background: rgba(5, 150, 105, 0.05);
+	}
+
+	.help-item.interactions {
+		border-left: 4px solid #dc2626;
+		background: rgba(220, 38, 38, 0.05);
+	}
+
+	.help-item.monthly {
+		border-left: 4px solid #0891b2;
+		background: rgba(8, 145, 178, 0.05);
+	}
+
+	.help-item.export {
+		border-left: 4px solid #16a34a;
+		background: rgba(22, 163, 74, 0.05);
+	}
+
+	.help-item.backup {
+		border-left: 4px solid #7c3aed;
+		background: rgba(124, 58, 237, 0.05);
+	}
+
+	.help-item.print {
+		border-left: 4px solid #ea580c;
+		background: rgba(234, 88, 12, 0.05);
+	}
+
+	.help-item.login {
+		border-left: 4px solid #be123c;
+		background: rgba(190, 18, 60, 0.05);
+	}
+
+	.help-item.loading {
+		border-left: 4px solid #0d9488;
+		background: rgba(13, 148, 136, 0.05);
+	}
+
+	.help-item.charts {
+		border-left: 4px solid #c2410c;
+		background: rgba(194, 65, 12, 0.05);
+	}
+
+	.help-item.performance {
+		border-left: 4px solid #be185d;
+		background: rgba(190, 24, 93, 0.05);
+	}
+
+	.help-item.mobile {
+		border-left: 4px solid #1e40af;
+		background: rgba(30, 64, 175, 0.05);
+	}
+
+	.help-item.regular {
+		border-left: 4px solid #059669;
+		background: rgba(5, 150, 105, 0.05);
+	}
+
+	.help-item.organization {
+		border-left: 4px solid #7c2d12;
+		background: rgba(124, 45, 18, 0.05);
+	}
+
+	.help-item.reviews {
+		border-left: 4px solid #1d4ed8;
+		background: rgba(29, 78, 216, 0.05);
+	}
+
+	.help-item.security {
+		border-left: 4px solid #dc2626;
+		background: rgba(220, 38, 38, 0.05);
+	}
+
+	.help-item.efficiency {
+		border-left: 4px solid #9333ea;
+		background: rgba(147, 51, 234, 0.05);
+	}
+
+	.item-title {
+		font-size: 1.125rem;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+		color: var(--color-text-primary);
+	}
+
+	.item-content {
+		color: var(--color-text-secondary);
+		line-height: 1.6;
+	}
+
+	.item-text {
+		margin: 0;
+		font-size: 0.875rem;
+		white-space: pre-line;
+	}
+
+	/* ========== Lists ========== */
+	.steps-list {
+		margin: 0;
+		padding-left: 1.5rem;
+	}
+
+	.step-item {
+		margin-bottom: 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.features-list {
+		margin: 0;
+		padding-left: 1.5rem;
+	}
+
+	.feature-item {
+		margin-bottom: 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.categories-content {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.category-group {
+		padding: 1rem;
+		border-radius: 0.5rem;
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border-primary);
+	}
+
+	.category-item {
+		font-size: 0.875rem;
+		margin-bottom: 0.25rem;
+		padding-left: 1rem;
+		position: relative;
+	}
+
+	.category-item::before {
+		content: "•";
+		position: absolute;
+		left: 0;
+		color: var(--color-text-tertiary);
 	}
 
 	/* ========== Buttons ========== */
@@ -749,6 +846,7 @@
 		transform: translateY(0);
 		cursor: pointer;
 		border: none;
+		text-decoration: none;
 	}
 
 	.btn:hover {
@@ -759,12 +857,6 @@
 	.btn:active {
 		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 		transform: translateY(0);
-	}
-
-	.btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-		transform: none;
 	}
 
 	.btn-primary {
@@ -788,402 +880,33 @@
 		background: var(--color-surface-hover);
 	}
 
-	.btn-success {
-		background: linear-gradient(to right, #16a34a, #059669);
-		color: white;
-	}
-
-	.btn-success:hover {
-		background: linear-gradient(to right, #15803d, #047857);
-	}
-
-	.btn-info {
-		background: linear-gradient(to right, #2563eb, #0891b2);
-		color: white;
-	}
-
-	.btn-info:hover {
-		background: linear-gradient(to right, #1d4ed8, #0e7490);
-	}
-
-	.btn-danger {
-		background: linear-gradient(to right, #dc2626, #e11d48);
-		color: white;
-	}
-
-	.btn-danger:hover {
-		background: linear-gradient(to right, #b91c1c, #be123c);
-	}
-
-	/* ========== Settings Content ========== */
-	.settings-content {
-		display: flex;
-		flex-direction: column;
-		gap: 2rem;
-	}
-
-	.settings-section {
-		border-radius: 1rem;
-		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-		border: 1px solid;
-		padding: 2rem;
-		background: var(--color-glass-bg);
-		border-color: var(--color-glass-border);
-		backdrop-filter: blur(20px);
-	}
-
-	/* ========== Section Headers ========== */
-	.section-header {
-		margin-bottom: 2rem;
-		padding-bottom: 1.5rem;
-		border-bottom: 1px solid;
-		border-color: var(--color-border-primary);
-	}
-
-	.section-title {
-		font-size: 1.25rem;
-		font-weight: 700;
-		margin-bottom: 0.5rem;
-		display: flex;
-		align-items: center;
-		color: var(--color-text-primary);
-	}
-
-	.section-icon {
-		font-size: 1.5rem;
-		margin-right: 0.75rem;
-	}
-
-	.section-description {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-	}
-
-	/* ========== Settings Grid ========== */
-	.settings-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1.5rem;
-	}
-
-	@media (min-width: 1024px) {
-		.settings-grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
-	}
-
-	.setting-group {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.col-span-full {
-		grid-column: 1 / -1;
-	}
-
-	/* ========== Form Elements ========== */
-	.setting-label {
-		display: block;
-		font-size: 0.875rem;
-		font-weight: 600;
-		margin-bottom: 0.5rem;
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		color: var(--color-text-primary);
-	}
-
-	.label-required {
-		color: #ef4444;
-	}
-
-	.input-group, .select-group {
-		position: relative;
-	}
-
-	.setting-input, .setting-select {
-		width: 100%;
-		padding: 0.75rem 3rem 0.75rem 1rem;
-		border-radius: 0.75rem;
-		border: 1px solid;
-		font-size: 0.875rem;
-		font-weight: 500;
-		transition: all 0.2s ease;
-		background: var(--color-bg-primary);
-		border-color: var(--color-border-primary);
-		color: var(--color-text-primary);
-	}
-
-	.setting-input:focus, .setting-select:focus {
-		outline: none;
-		border-color: #4f46e5;
-		box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-	}
-
-	.input-icon, .select-icon {
-		position: absolute;
-		right: 0.75rem;
-		top: 50%;
-		transform: translateY(-50%);
-		pointer-events: none;
-		color: var(--color-text-tertiary);
-	}
-
-	.setting-help {
-		font-size: 0.75rem;
-		margin-top: 0.25rem;
-		color: var(--color-text-tertiary);
-	}
-
-	/* ========== Toggle Switches ========== */
-	.toggle-group {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.toggle-setting {
-		display: flex;
-		align-items: flex-start;
-		gap: 1rem;
-		padding: 1rem;
-		border-radius: 0.75rem;
-		border: 1px solid;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		background: var(--color-bg-primary);
-		border-color: var(--color-border-primary);
-	}
-
-	.toggle-setting:hover {
-		background: var(--color-surface-hover);
-		box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-		transform: translateY(-2px);
-	}
-
-	.toggle-input {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
-	.toggle-switch {
-		position: relative;
-		width: 3rem;
-		height: 1.5rem;
-		border-radius: 9999px;
-		transition: background-color 0.2s ease;
-		flex-shrink: 0;
-		background: var(--color-border-secondary);
-	}
-
-	.toggle-input:checked + .toggle-switch {
-		background-color: #4f46e5;
-	}
-
-	.toggle-thumb {
-		position: absolute;
-		top: 2px;
-		left: 2px;
-		width: 1.25rem;
-		height: 1.25rem;
-		background-color: white;
-		border-radius: 50%;
-		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-		transition: transform 0.2s ease;
-	}
-
-	.toggle-input:checked + .toggle-switch .toggle-thumb {
-		transform: translateX(1.5rem);
-	}
-
-	.toggle-content {
-		flex: 1;
-	}
-
-	.toggle-title {
-		display: block;
-		font-weight: 600;
-		font-size: 0.875rem;
-		margin-bottom: 0.25rem;
-		color: var(--color-text-primary);
-	}
-
-	.toggle-description {
-		font-size: 0.75rem;
-		color: var(--color-text-secondary);
-	}
-
-	/* ========== Data Actions ========== */
-	.data-actions {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.action-card {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1.5rem;
-		border-radius: 0.75rem;
-		border: 1px solid;
-		transition: all 0.2s ease;
-		background: var(--color-bg-primary);
-		border-color: var(--color-border-primary);
-	}
-
-	.action-card:hover {
-		background: var(--color-surface-hover);
-		box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-		transform: translateY(-2px);
-	}
-
-	.action-card.danger {
-		border-color: #fecaca;
-		background-color: rgba(254, 242, 242, 0.5);
-	}
-
-	:root.dark .action-card.danger {
-		border-color: rgba(153, 27, 27, 0.5);
-		background-color: rgba(127, 29, 29, 0.2);
-	}
-
-	.action-icon {
-		width: 3rem;
-		height: 3rem;
-		border-radius: 0.75rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-	}
-
-	.action-icon.success {
-		background-color: #dcfce7;
-		color: #16a34a;
-	}
-
-	.action-icon.info {
-		background-color: #dbeafe;
-		color: #2563eb;
-	}
-
-	.action-icon.danger {
-		background-color: #fee2e2;
-		color: #dc2626;
-	}
-
-	:root.dark .action-icon.success {
-		background-color: rgba(20, 83, 45, 0.5);
-		color: #4ade80;
-	}
-
-	:root.dark .action-icon.info {
-		background-color: rgba(30, 58, 138, 0.5);
-		color: #60a5fa;
-	}
-
-	:root.dark .action-icon.danger {
-		background-color: rgba(127, 29, 29, 0.5);
-		color: #f87171;
-	}
-
-	.action-content {
-		flex: 1;
-	}
-
-	.action-title {
-		font-weight: 600;
-		font-size: 1rem;
-		margin-bottom: 0.25rem;
-		color: var(--color-text-primary);
-	}
-
-	.action-description {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-	}
-
-	/* ========== About Section ========== */
-	.about-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1rem;
-	}
-
-	@media (min-width: 640px) {
-		.about-grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
-	}
-
-	.about-item {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1rem;
-		border-radius: 0.75rem;
-		border: 1px solid;
-		background: var(--color-bg-primary);
-		border-color: var(--color-border-primary);
-	}
-
-	.about-icon {
-		width: 2.5rem;
-		height: 2.5rem;
-		border-radius: 0.5rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		background-color: #e0e7ff;
-		color: #4f46e5;
-	}
-
-	:root.dark .about-icon {
-		background-color: rgba(30, 58, 138, 0.5);
-		color: #a5b4fc;
-	}
-
-	.about-content {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.about-label {
-		display: block;
-		font-size: 0.75rem;
-		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-tertiary);
-	}
-
-	.about-value {
-		display: block;
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-text-primary);
-	}
-
 	/* ========== Responsive Design ========== */
+	@media (max-width: 1024px) {
+		.help-content {
+			grid-template-columns: 1fr;
+		}
+
+		.help-sidebar {
+			position: static;
+			order: 2;
+		}
+
+		.help-main {
+			order: 1;
+		}
+	}
+
 	@media (max-width: 640px) {
-		.settings-container {
+		.help-container {
 			padding: 1rem;
 			gap: 1.5rem;
 		}
 
-		.settings-section, .settings-header {
+		.help-header {
+			padding: 1.5rem;
+		}
+
+		.help-section {
 			padding: 1.5rem;
 		}
 
@@ -1192,21 +915,9 @@
 			gap: 1rem;
 		}
 
-		.header-actions {
-			flex-direction: column;
-		}
-
-		.settings-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.action-card {
-			flex-direction: column;
-			text-align: center;
-		}
-
-		.about-grid {
-			grid-template-columns: 1fr;
+		.search-container {
+			min-width: auto;
+			width: 100%;
 		}
 	}
 
@@ -1222,20 +933,130 @@
 		}
 	}
 
-	.settings-section {
+	.help-section {
 		animation: fadeInUp 0.6s ease-out;
 	}
 
-	.settings-section:nth-child(1) { animation-delay: 0.1s; }
-	.settings-section:nth-child(2) { animation-delay: 0.2s; }
-	.settings-section:nth-child(3) { animation-delay: 0.3s; }
-	.settings-section:nth-child(4) { animation-delay: 0.4s; }
-	.settings-section:nth-child(5) { animation-delay: 0.5s; }
+	.help-section:nth-child(1) { animation-delay: 0.1s; }
+	.help-section:nth-child(2) { animation-delay: 0.2s; }
+	.help-section:nth-child(3) { animation-delay: 0.3s; }
+	.help-section:nth-child(4) { animation-delay: 0.4s; }
+	.help-section:nth-child(5) { animation-delay: 0.5s; }
+	.help-section:nth-child(6) { animation-delay: 0.6s; }
+	.help-section:nth-child(7) { animation-delay: 0.7s; }
+	.help-section:nth-child(8) { animation-delay: 0.8s; }
 
 	/* ========== Dark Mode Overrides ========== */
-	:root.dark .setting-select option {
-		background: var(--color-bg-secondary);
-		color: var(--color-text-primary);
+	:root.dark .help-item.info {
+		background: rgba(59, 130, 246, 0.1);
+	}
+
+	:root.dark .help-item.warning {
+		background: rgba(245, 158, 11, 0.1);
+	}
+
+	:root.dark .help-item.steps {
+		background: rgba(16, 185, 129, 0.1);
+	}
+
+	:root.dark .help-item.features {
+		background: rgba(139, 92, 246, 0.1);
+	}
+
+	:root.dark .help-item.chart {
+		background: rgba(6, 182, 212, 0.1);
+	}
+
+	:root.dark .help-item.balance {
+		background: rgba(132, 204, 22, 0.1);
+	}
+
+	:root.dark .help-item.breakdown {
+		background: rgba(249, 115, 22, 0.1);
+	}
+
+	:root.dark .help-item.picker {
+		background: rgba(236, 72, 153, 0.1);
+	}
+
+	:root.dark .help-item.categories {
+		background: rgba(99, 102, 241, 0.1);
+	}
+
+	:root.dark .help-item.filter {
+		background: rgba(20, 184, 166, 0.1);
+	}
+
+	:root.dark .help-item.types {
+		background: rgba(168, 85, 247, 0.1);
+	}
+
+	:root.dark .help-item.colors {
+		background: rgba(225, 29, 72, 0.1);
+	}
+
+	:root.dark .help-item.reading {
+		background: rgba(5, 150, 105, 0.1);
+	}
+
+	:root.dark .help-item.interactions {
+		background: rgba(220, 38, 38, 0.1);
+	}
+
+	:root.dark .help-item.monthly {
+		background: rgba(8, 145, 178, 0.1);
+	}
+
+	:root.dark .help-item.export {
+		background: rgba(22, 163, 74, 0.1);
+	}
+
+	:root.dark .help-item.backup {
+		background: rgba(124, 58, 237, 0.1);
+	}
+
+	:root.dark .help-item.print {
+		background: rgba(234, 88, 12, 0.1);
+	}
+
+	:root.dark .help-item.login {
+		background: rgba(190, 18, 60, 0.1);
+	}
+
+	:root.dark .help-item.loading {
+		background: rgba(13, 148, 136, 0.1);
+	}
+
+	:root.dark .help-item.charts {
+		background: rgba(194, 65, 12, 0.1);
+	}
+
+	:root.dark .help-item.performance {
+		background: rgba(190, 24, 93, 0.1);
+	}
+
+	:root.dark .help-item.mobile {
+		background: rgba(30, 64, 175, 0.1);
+	}
+
+	:root.dark .help-item.regular {
+		background: rgba(5, 150, 105, 0.1);
+	}
+
+	:root.dark .help-item.organization {
+		background: rgba(124, 45, 18, 0.1);
+	}
+
+	:root.dark .help-item.reviews {
+		background: rgba(29, 78, 216, 0.1);
+	}
+
+	:root.dark .help-item.security {
+		background: rgba(220, 38, 38, 0.1);
+	}
+
+	:root.dark .help-item.efficiency {
+		background: rgba(147, 51, 234, 0.1);
 	}
 
 	/* ========== Smooth Animations ========== */

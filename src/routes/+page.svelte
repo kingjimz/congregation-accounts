@@ -7,9 +7,10 @@
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
+	import ChartSummary from '$lib/components/dashboard/ChartSummary.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import { formatCurrency } from '$lib/utils';
-	import type { TransactionFormData, Transaction } from '$lib/types';
+	import type { TransactionFormData, Transaction, OpeningBalance } from '$lib/types';
 
 	// UI state
 	let showTransactionForm = $state(false);
@@ -369,7 +370,7 @@
 		<!-- Header with Actions -->
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 			<div>
-				<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Financial Dashboard</h1>
+				<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Dashboard</h1>
 				<p style="color: var(--color-text-secondary);">Manage congregation accounts and track financial activities</p>
 			</div>
 			<div>
@@ -464,42 +465,49 @@
 			</div>
 		</Card>
 
-		<!-- All Transactions -->
-		<div>
+		<!-- Chart Summary & Analysis -->
+		<ChartSummary
+			month={selectedMonth || 'All'}
+		/>
+
+		<!-- Transaction Table - Full Width -->
+		<div class="w-full">
 			<!-- Filter Buttons -->
 			<div class="mb-4 flex gap-2">
 				<button
 					onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
-					class="filter-button {transactionFilter === 'all' ? 'filter-active' : ''}"
+					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+					style="{transactionFilter === 'all' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
 				>
 					All
 				</button>
 				<button
 					onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
-					class="filter-button {transactionFilter === 'income' ? 'filter-active' : ''}"
+					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'income' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+					style="{transactionFilter === 'income' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
 				>
 					Donations
 				</button>
 				<button
 					onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
-					class="filter-button {transactionFilter === 'expense' ? 'filter-active' : ''}"
+					class="px-4 py-2 rounded-lg font-medium transition-all duration-200 {transactionFilter === 'expense' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}"
+					style="{transactionFilter === 'expense' ? '' : 'background: var(--color-bg-secondary); color: var(--color-text-primary);'}"
 				>
 					Expenses
 				</button>
-			</div>
+				</div>
 
-				<TransactionList
-					transactions={paginatedTransactions()}
-					allTransactionsForTotals={monthlyData().transactions}
-					title="All Transactions"
-					showActions={true}
-					ondelete={handleDeleteTransaction}
-					onedit={handleEditTransaction}
-				/>
+			<TransactionList
+				transactions={paginatedTransactions()}
+				title="All Transactions"
+				showActions={true}
+				ondelete={handleDeleteTransaction}
+				onedit={handleEditTransaction}
+			/>
 
-				<!-- Pagination Controls -->
-				{#if totalPages > 1}
-					<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+			<!-- Pagination Controls -->
+			{#if totalPages > 1}
+				<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
 						<!-- Page Info -->
 						<div class="text-sm" style="color: var(--color-text-secondary);">
 							Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length} transactions
@@ -572,7 +580,7 @@
 						</div>
 					</div>
 				{/if}
-			</div>
+		</div>
 	{/if}
 
 	<!-- Transaction Form Modal -->
