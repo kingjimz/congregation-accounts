@@ -29,3 +29,13 @@ export {
   getTransactionsForMonth,
   groupTransactionsByCategory
 } from './calculations';
+
+export {
+  sortTransactions,
+  getSortPreference,
+  saveSortPreference,
+  getSortFieldLabel,
+  type SortField,
+  type SortOrder,
+  type SortConfig
+} from './sorting';

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-	import { Button, Card } from '$lib/components/ui';
-	import { formatCurrency, formatDate, formatCategoryName } from '$lib/utils';
+	import { createEventDispatcher, onMount } from 'svelte';
+	import { Button, Card, Select } from '$lib/components/ui';
+	import { formatCurrency, formatDate, formatCategoryName, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { Transaction } from '$lib/types';
 
 	interface Props {
@@ -13,6 +13,10 @@
 		allTransactionsForTotals?: Transaction[]; // All transactions for calculating totals (before filtering/pagination)
 		ondelete?: (event: { id: string }) => void;
 		onedit?: (event: { transaction: Transaction }) => void;
+		showSortControls?: boolean; // Option to show/hide sort controls
+		sortField?: SortField; // Sort field from parent
+		sortOrder?: SortOrder; // Sort order from parent
+		onsortchange?: (event: { field: SortField; order: SortOrder }) => void; // Callback for sort changes
 	}
 
 	let {
@@ -23,14 +27,56 @@
 		loading = false,
 		allTransactionsForTotals,
 		ondelete,
-		onedit
+		onedit,
+		showSortControls = true,
+		sortField: propSortField,
+		sortOrder: propSortOrder,
+		onsortchange
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		delete: { id: string };
 		edit: { transaction: Transaction };
+		sortchange: { field: SortField; order: SortOrder };
 	}>();
 
+	// Internal sort state (used if not controlled by parent)
+	let internalSortField = $state<SortField>('date');
+	let internalSortOrder = $state<SortOrder>('desc');
+	let isInitialized = $state(false);
+
+	// Use parent sort state if provided, otherwise use internal state
+	const sortField = $derived(propSortField ?? internalSortField);
+	const sortOrder = $derived(propSortOrder ?? internalSortOrder);
+
+	// Load sort preference on mount (only if not controlled by parent)
+	onMount(() => {
+		if (propSortField === undefined && propSortOrder === undefined) {
+			const preference = getSortPreference();
+			internalSortField = preference.field;
+			internalSortOrder = preference.order;
+		}
+		isInitialized = true;
+	});
+
+	// Save sort preference when it changes (but not on initial load)
+	$effect(() => {
+		if (isInitialized && propSortField === undefined && propSortOrder === undefined) {
+			saveSortPreference({ field: internalSortField, order: internalSortOrder });
+		}
+	});
+
+	// Sort options
+	const sortOptions = [
+		{ value: 'date', label: 'Date' },
+		{ value: 'amount', label: 'Amount' },
+		{ value: 'description', label: 'Description' },
+		{ value: 'category', label: 'Category' },
+		{ value: 'type', label: 'Type' }
+	];
+
+	// If transactions are already sorted by parent, use them as-is
+	// Otherwise, sort them here (for backward compatibility)
 	const displayTransactions = $derived(
 		maxItems ? transactions.slice(0, maxItems) : transactions
 	);
@@ -88,9 +134,69 @@
 			};
 		}
 	});
+
+	function handleSortFieldChange(value: string) {
+		const newField = value as SortField;
+		const newOrder = sortOrder;
+		
+		if (propSortField !== undefined || propSortOrder !== undefined) {
+			// Controlled by parent - emit event
+			onsortchange?.({ field: newField, order: newOrder });
+			dispatch('sortchange', { field: newField, order: newOrder });
+		} else {
+			// Internal state
+			internalSortField = newField;
+		}
+	}
+
+	function toggleSortOrder() {
+		const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+		
+		if (propSortField !== undefined || propSortOrder !== undefined) {
+			// Controlled by parent - emit event
+			onsortchange?.({ field: sortField, order: newOrder });
+			dispatch('sortchange', { field: sortField, order: newOrder });
+		} else {
+			// Internal state
+			internalSortOrder = newOrder;
+		}
+	}
 </script>
 
 <Card title={title}>
+	{#if showSortControls && !loading && transactions.length > 0}
+		<div class="mb-4 flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between p-3 rounded-lg" style="background: var(--color-surface-primary); border: 1px solid var(--color-border-primary);">
+			<div class="flex items-center gap-2 w-full sm:w-auto">
+				<label for="sort-field" class="text-sm font-medium whitespace-nowrap" style="color: var(--color-text-secondary);">
+					Sort by:
+				</label>
+				<div class="flex-1 sm:flex-none min-w-[150px]">
+					<Select
+						id="sort-field"
+						value={sortField}
+						options={sortOptions}
+						onchange={handleSortFieldChange}
+					/>
+				</div>
+				<Button
+					variant="secondary"
+					onclick={toggleSortOrder}
+					title={sortOrder === 'asc' ? 'Sort ascending' : 'Sort descending'}
+					class="flex-shrink-0"
+				>
+					{#if sortOrder === 'asc'}
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+						</svg>
+					{:else}
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+						</svg>
+					{/if}
+				</Button>
+			</div>
+		</div>
+	{/if}
 	{#if loading}
 		<div class="flex items-center justify-center py-8">
 			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>

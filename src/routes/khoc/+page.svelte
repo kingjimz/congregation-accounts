@@ -8,6 +8,7 @@
 	import MonthlyBalance from '$lib/components/dashboard/MonthlyBalance.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
+	import { sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { TransactionFormData, Transaction } from '$lib/types';
 
 	let username = $state('');
@@ -37,6 +38,10 @@
 	// Filter state
 	let transactionFilter = $state<'all' | 'income' | 'expense'>('all');
 
+	// Sort state
+	let sortField = $state<SortField>('date');
+	let sortOrder = $state<SortOrder>('desc');
+
 	// Opening balance form state
 	let newOpeningBalance = $state(0);
 	let openingBalanceNote = $state('');
@@ -48,6 +53,12 @@
 
 		if (isAuthenticated) {
 			console.log('KHOC Dashboard loaded for authenticated user');
+			
+			// Load sort preference
+			const preference = getSortPreference();
+			sortField = preference.field;
+			sortOrder = preference.order;
+			
 			await Promise.all([
 				khocTransactionStore.loadTransactions(),
 				khocOpeningBalanceStore.loadOpeningBalances()
@@ -68,13 +79,21 @@
 	});
 
 	// Get all transactions for display with filter applied
-	const allTransactions = $derived(() => {
+	const filteredTransactions = $derived(() => {
 		const transactions = monthlyData().transactions;
 		if (transactionFilter === 'all') {
 			return transactions;
 		}
 		return transactions.filter(t => t.type === transactionFilter);
 	});
+
+	// Apply sorting to all filtered transactions
+	const sortedTransactions = $derived(() => {
+		return sortTransactions(filteredTransactions(), sortField, sortOrder);
+	});
+
+	// Alias for backward compatibility
+	const allTransactions = $derived(() => sortedTransactions());
 
 	// Helper functions for category classification
 	function isEsperanzaCategory(category: string): boolean {
@@ -362,6 +381,14 @@
 			handleLogin();
 		}
 	}
+
+	function handleSortChange(event: { field: SortField; order: SortOrder }) {
+		sortField = event.field;
+		sortOrder = event.order;
+		saveSortPreference({ field: event.field, order: event.order });
+		// Reset to first page when sort changes
+		currentPage = 1;
+	}
 </script>
 
 <svelte:head>
@@ -586,6 +613,9 @@
 						showActions={true}
 						ondelete={handleDeleteTransaction}
 						onedit={handleEditTransaction}
+						sortField={sortField}
+						sortOrder={sortOrder}
+						onsortchange={handleSortChange}
 					/>
 
 					<!-- Pagination Controls -->
