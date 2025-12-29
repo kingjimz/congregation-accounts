@@ -9,6 +9,7 @@
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
 	import ChartSummary from '$lib/components/dashboard/ChartSummary.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
+	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
 	import { formatCurrency, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { TransactionFormData, Transaction, OpeningBalance } from '$lib/types';
 
@@ -21,6 +22,8 @@
 	let selectedMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM format
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
+	let showReportMenu = $state(false);
+	let isGeneratingReport = $state(false);
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -343,6 +346,61 @@
 		currentPage = 1;
 	}
 
+	function prepareReportData(): MonthlyReportData {
+		const ob = monthlyData().openingBalance;
+		let openingBalance: OpeningBalance | null = null;
+		if (typeof ob === 'number') {
+			openingBalance = ob !== 0 ? { month: selectedMonth, balance: ob } : null;
+		} else {
+			openingBalance = ob as OpeningBalance | null;
+		}
+		
+		return {
+			month: selectedMonth,
+			transactions: monthlyData().transactions,
+			openingBalance,
+			congregationName: 'Bolaoen Congregation',
+			reportDate: new Date().toLocaleDateString('en-US', {
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric'
+			})
+		};
+	}
+
+	async function previewReport() {
+		if (isGeneratingReport || !selectedMonth) return;
+		
+		isGeneratingReport = true;
+		showReportMenu = false;
+		try {
+			const reportData = prepareReportData();
+			await PdfReportService.previewReport(reportData);
+		} catch (error) {
+			console.error('Error previewing PDF:', error);
+			alert('Failed to preview PDF report. Please try again.');
+		} finally {
+			isGeneratingReport = false;
+		}
+	}
+
+	async function generateReport() {
+		if (isGeneratingReport || !selectedMonth) return;
+		
+		isGeneratingReport = true;
+		showReportMenu = false;
+		try {
+			const reportData = prepareReportData();
+			const filename = `monthly-report-${selectedMonth}-bolaoen-congregation.pdf`;
+			await PdfReportService.downloadReport(reportData, filename);
+		} catch (error) {
+			console.error('Error generating PDF:', error);
+			alert('Failed to generate PDF report. Please try again.');
+		} finally {
+			isGeneratingReport = false;
+		}
+	}
+
 	function handleAmountKeydown(event: KeyboardEvent) {
 		// Allow: backspace, delete, tab, escape, enter
 		if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
@@ -399,13 +457,50 @@
 				<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Dashboard</h1>
 				<p style="color: var(--color-text-secondary);">Manage congregation accounts and track financial activities</p>
 			</div>
-			<div>
+			<div class="flex gap-2">
 				<Button
 					variant="primary"
 					onclick={() => showTransactionForm = true}
 				>
 					Add Transaction
 				</Button>
+				{#if selectedMonth && selectedMonth !== ''}
+					<div class="relative">
+						<Button
+							variant="secondary"
+							onclick={() => showReportMenu = !showReportMenu}
+							disabled={isGeneratingReport}
+						>
+							{#if isGeneratingReport}
+								Generating...
+							{:else}
+								Preview and Generate Report
+							{/if}
+						</Button>
+						{#if showReportMenu}
+							<div class="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+								<div class="py-1">
+									<button
+										onclick={previewReport}
+										disabled={isGeneratingReport}
+										class="report-menu-item"
+										style="color: var(--color-text-primary);"
+									>
+										Preview Report
+									</button>
+									<button
+										onclick={generateReport}
+										disabled={isGeneratingReport}
+										class="report-menu-item"
+										style="color: var(--color-text-primary);"
+									>
+										Generate & Download
+									</button>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -492,9 +587,7 @@
 		</Card>
 
 		<!-- Chart Summary & Analysis -->
-		<ChartSummary
-			month={selectedMonth || 'All'}
-		/>
+		<ChartSummary />
 
 		<!-- Transaction Table - Full Width -->
 		<div class="w-full">
@@ -886,6 +979,28 @@
 	.filter-tab-active:hover {
 		background: #4338ca !important;
 		border-color: #4338ca !important;
+	}
+
+	.report-menu-item {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.report-menu-item:hover:not(:disabled) {
+		background: #4f46e5;
+		color: white !important;
+	}
+
+	.report-menu-item:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	@media (max-width: 768px) {

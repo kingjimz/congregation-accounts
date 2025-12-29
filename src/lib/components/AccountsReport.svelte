@@ -43,10 +43,10 @@
 		try {
 			const reportData = prepareReportData();
 			const filename = `monthly-report-${month}-bolaoen-congregation.pdf`;
-			PdfReportService.downloadReport(reportData, filename);
+			await PdfReportService.downloadReport(reportData, filename);
 		} catch (error) {
 			console.error('Error generating PDF:', error);
-			alert('Failed to generate PDF report. Please try again.');
+			alert('Failed to generate PDF report. Please make sure the template PDF is in static/pdfs/monthly-report-template.pdf');
 		} finally {
 			isGenerating = false;
 		}
@@ -58,10 +58,10 @@
 		isGenerating = true;
 		try {
 			const reportData = prepareReportData();
-			PdfReportService.previewReport(reportData);
+			await PdfReportService.previewReport(reportData);
 		} catch (error) {
 			console.error('Error previewing PDF:', error);
-			alert('Failed to preview PDF report. Please try again.');
+			alert('Failed to preview PDF report. Please make sure the template PDF is in static/pdfs/monthly-report-template.pdf');
 		} finally {
 			isGenerating = false;
 		}
@@ -111,7 +111,7 @@
 					<span class="loading-spinner"></span>
 					Generating...
 				{:else}
-					👁️ Preview Report
+					Preview
 				{/if}
 			</Button>
 
@@ -125,7 +125,7 @@
 					<span class="loading-spinner"></span>
 					Generating...
 				{:else}
-					📄 Download PDF
+					Download PDF
 				{/if}
 			</Button>
 		</div>
