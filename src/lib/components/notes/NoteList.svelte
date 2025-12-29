@@ -107,6 +107,7 @@
 									onclick={() => handleEdit(note)}
 									class="p-2 rounded-lg hover:bg-indigo-50 transition-colors"
 									style="color: var(--color-primary);"
+									aria-label="Edit note"
 									title="Edit note"
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,6 +118,7 @@
 									onclick={() => handleDelete(note.id)}
 									class="p-2 rounded-lg hover:bg-red-50 transition-colors"
 									style="color: var(--color-error);"
+									aria-label="Delete note"
 									title="Delete note"
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
