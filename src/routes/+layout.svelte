@@ -137,7 +137,7 @@
 {:else}
 	<div class="flex flex-col min-h-screen transition-colors duration-300" style="background: var(--color-bg-secondary);">
 		<!-- Header -->
-		<header class="header-container z-40" style="background: transparent;">
+		<header class="header-container z-40 sticky top-0" style="background: var(--color-bg-secondary);">
 			<div class="header-accent"></div>
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between py-6">
@@ -242,8 +242,11 @@
 
 <style>
 	.header-container {
-		position: relative;
+		position: sticky;
+		top: 0;
 		overflow: hidden;
+		box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+		backdrop-filter: blur(10px);
 	}
 
 	.header-accent {
