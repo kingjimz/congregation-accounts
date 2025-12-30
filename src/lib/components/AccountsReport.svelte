@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
-	import { Button } from '$lib/components/ui';
+	import { Button, Select } from '$lib/components/ui';
 	import { formatMonthYear } from '$lib/utils';
 	import type { Transaction, OpeningBalance } from '$lib/types';
 
@@ -21,6 +21,12 @@
 	}: Props = $props();
 
 	let isGenerating = $state(false);
+	let selectedTemplate = $state<'S-26_E' | 'S-30_E'>('S-30_E');
+
+	const templateOptions = [
+		{ value: 'S-26_E', label: 'S-26_E' },
+		{ value: 'S-30_E', label: 'S-30_E' }
+	];
 
 	function prepareReportData(): MonthlyReportData {
 		return {
@@ -42,11 +48,12 @@
 		isGenerating = true;
 		try {
 			const reportData = prepareReportData();
-			const filename = `monthly-report-${month}-bolaoen-congregation.pdf`;
-			await PdfReportService.downloadReport(reportData, filename);
+			const monthYearUpper = monthName.toUpperCase().replace(' ', '_');
+			const filename = `${selectedTemplate}_${monthYearUpper}.pdf`;
+			await PdfReportService.downloadReport(reportData, filename, selectedTemplate);
 		} catch (error) {
 			console.error('Error generating PDF:', error);
-			alert('Failed to generate PDF report. Please make sure the template PDF is in static/pdfs/monthly-report-template.pdf');
+			alert('Failed to generate PDF report. Please make sure the template PDF is in static/pdfs/');
 		} finally {
 			isGenerating = false;
 		}
@@ -58,10 +65,10 @@
 		isGenerating = true;
 		try {
 			const reportData = prepareReportData();
-			await PdfReportService.previewReport(reportData);
+			await PdfReportService.previewReport(reportData, selectedTemplate);
 		} catch (error) {
 			console.error('Error previewing PDF:', error);
-			alert('Failed to preview PDF report. Please make sure the template PDF is in static/pdfs/monthly-report-template.pdf');
+			alert('Failed to preview PDF report. Please make sure the template PDF is in static/pdfs/');
 		} finally {
 			isGenerating = false;
 		}
@@ -101,33 +108,48 @@
 		</div>
 	{:else}
 		<div class="report-actions">
-			<Button
-				variant="secondary"
-				onclick={previewPDF}
-				disabled={loading || isGenerating}
-				class="preview-btn"
-			>
-				{#if isGenerating}
-					<span class="loading-spinner"></span>
-					Generating...
-				{:else}
-					Preview
-				{/if}
-			</Button>
+			<div class="template-selector">
+				<Select
+					label="Report Template"
+					value={selectedTemplate}
+					options={templateOptions}
+					placeholder="Select a template..."
+					disabled={loading || isGenerating}
+					onchange={(value) => {
+						selectedTemplate = value as 'S-26_E' | 'S-30_E';
+					}}
+				/>
+			</div>
+			
+			<div class="button-group">
+				<Button
+					variant="secondary"
+					onclick={previewPDF}
+					disabled={loading || isGenerating}
+					class="preview-btn"
+				>
+					{#if isGenerating}
+						<span class="loading-spinner"></span>
+						Generating...
+					{:else}
+						Preview
+					{/if}
+				</Button>
 
-			<Button
-				variant="primary"
-				onclick={generateAndDownloadPDF}
-				disabled={loading || isGenerating}
-				class="download-btn"
-			>
-				{#if isGenerating}
-					<span class="loading-spinner"></span>
-					Generating...
-				{:else}
-					Download PDF
-				{/if}
-			</Button>
+				<Button
+					variant="primary"
+					onclick={generateAndDownloadPDF}
+					disabled={loading || isGenerating}
+					class="download-btn"
+				>
+					{#if isGenerating}
+						<span class="loading-spinner"></span>
+						Generating...
+					{:else}
+						Download Report
+					{/if}
+				</Button>
+			</div>
 		</div>
 
 		<div class="report-info">
@@ -220,8 +242,19 @@
 
 	.report-actions {
 		display: flex;
+		flex-direction: column;
 		gap: 0.75rem;
 		margin-bottom: 1.5rem;
+	}
+
+	.template-selector {
+		width: 100%;
+	}
+
+	.button-group {
+		display: flex;
+		gap: 0.75rem;
+		width: 100%;
 	}
 
 	.report-actions :global(.preview-btn),
@@ -285,7 +318,7 @@
 			padding: 1rem;
 		}
 
-		.report-actions {
+		.button-group {
 			flex-direction: column;
 		}
 

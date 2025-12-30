@@ -8,9 +8,10 @@ export const INCOME_CATEGORIES = [
 ] as const;
 
 export const EXPENSE_CATEGORIES = [
+  'KHOC',
+  'Resolution',
   'Worldwide Work Expenses',
   'Local Congregation Expenses',
-  'Other Expenses'
 ] as const;
 
 export const ALL_CATEGORIES = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES] as const;

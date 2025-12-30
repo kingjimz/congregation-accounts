@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import type { Transaction, OpeningBalance } from '$lib/types';
 import { formatMonthYear } from '$lib/utils';
 
@@ -25,17 +25,17 @@ export class PdfReportService {
   }
 
   /**
-   * Loads the PDF template (S-30_E.pdf) and fills it with data using text positioning
-   * Template should be placed at: static/pdfs/S-30_E.pdf
+   * Loads the PDF template and fills it with data using text positioning
+   * Template should be placed at: static/pdfs/S-30_E.pdf or static/pdfs/S-26_E.pdf
    */
-  public static async generateMonthlyReport(data: MonthlyReportData): Promise<Uint8Array> {
+  public static async generateMonthlyReport(data: MonthlyReportData, templateType: 'S-26_E' | 'S-30_E' = 'S-30_E'): Promise<Uint8Array> {
     try {
       // Load the PDF template
-      const templatePath = '/pdfs/S-30_E.pdf';
+      const templatePath = `/pdfs/${templateType}.pdf`;
       const templateResponse = await fetch(templatePath);
       
       if (!templateResponse.ok) {
-        throw new Error(`Template PDF not found at ${templatePath}. Please add S-30_E.pdf to the static/pdfs/ directory.`);
+        throw new Error(`Template PDF not found at ${templatePath}. Please add ${templateType}.pdf to the static/pdfs/ directory.`);
       }
 
       const templateBytes = await templateResponse.arrayBuffer();
@@ -52,16 +52,12 @@ export class PdfReportService {
         const form = pdfDoc.getForm();
         const formFields = form.getFields();
         
-        console.log('Available form fields in PDF:');
-        formFields.forEach((field) => {
-          const fieldName = field.getName();
-          const fieldType = field.constructor.name;
-          console.log(`- Field: "${fieldName}", Type: ${fieldType}`);
-        });
+        // Embed Times-Roman font (standard PDF font equivalent to Times New Roman)
+        // Note: Font size is typically controlled by the PDF template's form field properties
+        const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
         
         // Prepare all data values
         const congregationName = data.congregationName || 'Bolaoen Congregation';
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const monthYear = formatMonthYear(data.month);
         const openingBalanceAmount = data.openingBalance?.balance || 0;
         
@@ -79,6 +75,27 @@ export class PdfReportService {
             transaction.category.includes('Local Congregation Donations')
           )
           .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+        const khoc_contributions = data.transactions
+          .filter(transaction => 
+            transaction.type === 'expense' && 
+            transaction.category.includes('KHOC')
+          )
+          .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+          const expense_resolution = data.transactions
+          .filter(transaction => 
+            transaction.type === 'expense' && 
+            transaction.category.includes('Resolution')
+          )
+          .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+          const www_expense = data.transactions
+          .filter(transaction => 
+            transaction.type === 'expense' && 
+            transaction.category.includes('Worldwide Work Expenses')
+          )
+          .reduce((sum, transaction) => sum + transaction.amount, 0);
         
         // For PDF form fields that are used in calculations, use plain numeric strings (no commas)
         // The PDF's format script will handle the display formatting with commas
@@ -86,6 +103,9 @@ export class PdfReportService {
         const openingBalanceForCalc = this.formatAmountForCalculation(openingBalanceAmount);
         const www_donations_forCalc = this.formatAmountForCalculation(www_donation);
         const lce_donations_forCalc = this.formatAmountForCalculation(lce_donations);
+        const khoc_contributions_forCalc = this.formatAmountForCalculation(khoc_contributions);
+        const resolution = this.formatAmountForCalculation(expense_resolution);
+        const www = this.formatAmountForCalculation(www_expense);
         
         // Map data to form fields by exact field names
         // Using plain numeric strings (no commas) for calculated fields
@@ -96,6 +116,9 @@ export class PdfReportService {
           '901_1_S30_Value': openingBalanceForCalc,
           '901_2_S30_Value': lce_donations_forCalc,
           '901_7_S30_Value': www_donations_forCalc,
+          '901_12_S30_Value': khoc_contributions_forCalc,
+          '901_13_S30_Value' : resolution,
+          '901_20_S30_Value' : www
         };
         
         // Fill form fields based on mappings
@@ -115,7 +138,11 @@ export class PdfReportService {
             // Check if there's a direct mapping
             if (fieldMappings[fieldName]) {
               textField.setText(fieldMappings[fieldName]);
-              console.log(`✓ Filled field "${fieldName}" with: ${fieldMappings[fieldName]}`);
+              
+              // Update appearances with Times New Roman font
+              // Note: Font size is typically controlled by the PDF template's form field properties
+              // The updateAppearances method will apply the Times-Roman font
+              textField.updateAppearances(timesRomanFont);
             }
           } catch {
             // Skip if field can't be accessed
@@ -123,11 +150,8 @@ export class PdfReportService {
         });
       } catch {
         // PDF might not have form fields, continue with manual positioning
-        console.log('PDF does not have interactive form fields, using manual positioning');
       }
      
-      console.log(data);
-
       // Save the PDF
       const pdfBytes = await pdfDoc.save();
       return pdfBytes;
@@ -137,14 +161,15 @@ export class PdfReportService {
     }
   }
 
-  public static async downloadReport(data: MonthlyReportData, filename?: string): Promise<void> {
+  public static async downloadReport(data: MonthlyReportData, filename?: string, templateType: 'S-26_E' | 'S-30_E' = 'S-30_E'): Promise<void> {
     try {
-      const pdfBytes = await this.generateMonthlyReport(data);
+      const pdfBytes = await this.generateMonthlyReport(data, templateType);
       const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = filename || `monthly-report-${data.month}.pdf`;
+      const monthYear = formatMonthYear(data.month).toUpperCase().replace(' ', '_');
+      link.download = filename || `${templateType}_${monthYear}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -155,9 +180,9 @@ export class PdfReportService {
     }
   }
 
-  public static async previewReport(data: MonthlyReportData): Promise<void> {
+  public static async previewReport(data: MonthlyReportData, templateType: 'S-26_E' | 'S-30_E' = 'S-30_E'): Promise<void> {
     try {
-      const pdfBytes = await this.generateMonthlyReport(data);
+      const pdfBytes = await this.generateMonthlyReport(data, templateType);
       const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');

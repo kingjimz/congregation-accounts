@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { transactions, loading, error, transactionStore } from '$lib/stores/transactions';
 	import { openingBalances, openingBalanceStore } from '$lib/stores/opening-balances';
-	import { Alert, Button, Modal, Card } from '$lib/components/ui';
+	import { Alert, Button, Modal, Card, Select } from '$lib/components/ui';
 	import TransactionForm from '$lib/components/forms/TransactionForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
@@ -10,7 +10,7 @@
 	import ChartSummary from '$lib/components/dashboard/ChartSummary.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
-	import { formatCurrency, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
+	import { formatCurrency, formatMonthYear, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { TransactionFormData, Transaction, OpeningBalance } from '$lib/types';
 
 	// UI state
@@ -24,6 +24,12 @@
 	let deletingTransactionId = $state<string | null>(null);
 	let showReportMenu = $state(false);
 	let isGeneratingReport = $state(false);
+	let selectedTemplate = $state<'S-26_E' | 'S-30_E'>('S-30_E');
+
+	const templateOptions = [
+		{ value: 'S-26_E', label: 'S-26_E' },
+		{ value: 'S-30_E', label: 'S-30_E' }
+	];
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -368,22 +374,6 @@
 		};
 	}
 
-	async function previewReport() {
-		if (isGeneratingReport || !selectedMonth) return;
-		
-		isGeneratingReport = true;
-		showReportMenu = false;
-		try {
-			const reportData = prepareReportData();
-			await PdfReportService.previewReport(reportData);
-		} catch (error) {
-			console.error('Error previewing PDF:', error);
-			alert('Failed to preview PDF report. Please try again.');
-		} finally {
-			isGeneratingReport = false;
-		}
-	}
-
 	async function generateReport() {
 		if (isGeneratingReport || !selectedMonth) return;
 		
@@ -391,8 +381,9 @@
 		showReportMenu = false;
 		try {
 			const reportData = prepareReportData();
-			const filename = `monthly-report-${selectedMonth}-bolaoen-congregation.pdf`;
-			await PdfReportService.downloadReport(reportData, filename);
+			const monthYear = formatMonthYear(selectedMonth).toUpperCase().replace(' ', '_');
+			const filename = `${selectedTemplate}_${monthYear}.pdf`;
+			await PdfReportService.downloadReport(reportData, filename, selectedTemplate);
 		} catch (error) {
 			console.error('Error generating PDF:', error);
 			alert('Failed to generate PDF report. Please try again.');
@@ -474,28 +465,34 @@
 							{#if isGeneratingReport}
 								Generating...
 							{:else}
-								Preview and Generate Report
+								Generate Report
 							{/if}
 						</Button>
 						{#if showReportMenu}
-							<div class="absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
-								<div class="py-1">
-									<button
-										onclick={previewReport}
+							<div class="absolute right-0 mt-2 w-64 rounded-lg shadow-lg z-10 p-4" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+								<div class="space-y-3">
+									<Select
+										label="Report Template"
+										value={selectedTemplate}
+										options={templateOptions}
+										placeholder="Select a template..."
 										disabled={isGeneratingReport}
-										class="report-menu-item"
-										style="color: var(--color-text-primary);"
-									>
-										Preview Report
-									</button>
-									<button
+										onchange={(value) => {
+											selectedTemplate = value as 'S-26_E' | 'S-30_E';
+										}}
+									/>
+									<Button
+										variant="primary"
 										onclick={generateReport}
 										disabled={isGeneratingReport}
-										class="report-menu-item"
-										style="color: var(--color-text-primary);"
+										class="w-full"
 									>
-										Generate & Download
-									</button>
+										{#if isGeneratingReport}
+											Generating...
+										{:else}
+											Generate Report
+										{/if}
+									</Button>
 								</div>
 							</div>
 						{/if}
@@ -981,27 +978,6 @@
 		border-color: #4338ca !important;
 	}
 
-	.report-menu-item {
-		display: block;
-		width: 100%;
-		text-align: left;
-		padding: 0.5rem 1rem;
-		font-size: 0.875rem;
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.report-menu-item:hover:not(:disabled) {
-		background: #4f46e5;
-		color: white !important;
-	}
-
-	.report-menu-item:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
 
 	@media (max-width: 768px) {
 		.summary-card {
