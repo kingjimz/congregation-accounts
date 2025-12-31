@@ -17,7 +17,23 @@
 	let expenseCanvasRef: HTMLCanvasElement;
 	let incomeChartInstance: Chart | null = null;
 	let expenseChartInstance: Chart | null = null;
-	let chartType = $state<'bar' | 'line'>('line');
+	
+	// Load chart type from localStorage or default to 'line'
+	const getStoredChartType = (): 'bar' | 'line' => {
+		if (typeof window === 'undefined') return 'line';
+		const stored = localStorage.getItem('chartType');
+		return (stored === 'bar' || stored === 'line') ? stored : 'line';
+	};
+	
+	let chartType = $state<'bar' | 'line'>(getStoredChartType());
+	
+	// Save chart type to localStorage when it changes
+	function setChartType(type: 'bar' | 'line') {
+		chartType = type;
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('chartType', type);
+		}
+	}
 
 	// Format month for display
 	function formatMonthForTitle(monthStr: string): string {
@@ -54,7 +70,16 @@
 		};
 	}
 
-	// Process expense data - separate local congregation and worldwide work expenses
+	// Helper functions for expense category classification
+	function isResolutionCategory(category: string): boolean {
+		return category.toLowerCase().includes('resolution');
+	}
+
+	function isKhocCategory(category: string): boolean {
+		return category.toLowerCase().includes('khoc');
+	}
+
+	// Process expense data - separate local congregation, worldwide work, resolution, and KHOC expenses
 	function processExpenseData(transactions: Transaction[]) {
 		const expenseTransactions = transactions
 			.filter(t => t.type === 'expense')
@@ -62,10 +87,14 @@
 
 		const localExpenses = expenseTransactions.filter(t => isLocalCategory(t.category));
 		const worldwideExpenses = expenseTransactions.filter(t => isWorldwideCategory(t.category));
+		const resolutionExpenses = expenseTransactions.filter(t => isResolutionCategory(t.category));
+		const khocExpenses = expenseTransactions.filter(t => isKhocCategory(t.category));
 
 		return {
 			local: localExpenses,
 			worldwide: worldwideExpenses,
+			resolution: resolutionExpenses,
+			khoc: khocExpenses,
 			all: expenseTransactions
 		};
 	}
@@ -216,10 +245,12 @@
 
 		const expenseData = processExpenseData(transactions);
 		
-		// Get all unique dates from both local and worldwide expenses
+		// Get all unique dates from all expense categories
 		const allDates = [...new Set([
 			...expenseData.local.map((t: Transaction) => t.date),
-			...expenseData.worldwide.map((t: Transaction) => t.date)
+			...expenseData.worldwide.map((t: Transaction) => t.date),
+			...expenseData.resolution.map((t: Transaction) => t.date),
+			...expenseData.khoc.map((t: Transaction) => t.date)
 		])].sort();
 
 		const labels = allDates.map(date => {
@@ -238,22 +269,36 @@
 			return transaction ? transaction.amount : 0;
 		});
 
+		const resolutionData = allDates.map(date => {
+			const transaction = expenseData.resolution.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
+		const khocData = allDates.map(date => {
+			const transaction = expenseData.khoc.find(t => t.date === date);
+			return transaction ? transaction.amount : 0;
+		});
+
 		// Create tooltip labels
 		const tooltipLabels = allDates.map(date => {
 			const localTransaction = expenseData.local.find(t => t.date === date);
 			const worldwideTransaction = expenseData.worldwide.find(t => t.date === date);
+			const resolutionTransaction = expenseData.resolution.find(t => t.date === date);
+			const khocTransaction = expenseData.khoc.find(t => t.date === date);
 			
 			// Format date to be shorter (MM/DD)
 			const d = new Date(date);
 			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
 			
 			let tooltip = shortDate;
-			if (localTransaction && worldwideTransaction) {
-				tooltip = `${shortDate} - Expenses`;
-			} else if (localTransaction) {
-				tooltip = `${shortDate} - Local`;
-			} else if (worldwideTransaction) {
-				tooltip = `${shortDate} - Worldwide`;
+			const categories = [];
+			if (localTransaction) categories.push('Local');
+			if (worldwideTransaction) categories.push('Worldwide');
+			if (resolutionTransaction) categories.push('Resolution');
+			if (khocTransaction) categories.push('KHOC');
+			
+			if (categories.length > 0) {
+				tooltip = `${shortDate} - ${categories.join(', ')}`;
 			}
 			return tooltip;
 		});
@@ -286,6 +331,24 @@
 						data: worldwideData,
 						backgroundColor: chartType === 'bar' ? 'rgba(168, 85, 247, 0.7)' : 'rgba(168, 85, 247, 0.2)',
 						borderColor: 'rgba(168, 85, 247, 1)',
+						borderWidth: chartType === 'bar' ? 1 : 2,
+						tension: 0.4,
+						fill: chartType === 'line'
+					},
+					{
+						label: 'Resolution',
+						data: resolutionData,
+						backgroundColor: chartType === 'bar' ? 'rgba(245, 158, 11, 0.7)' : 'rgba(245, 158, 11, 0.2)',
+						borderColor: 'rgba(245, 158, 11, 1)',
+						borderWidth: chartType === 'bar' ? 1 : 2,
+						tension: 0.4,
+						fill: chartType === 'line'
+					},
+					{
+						label: 'KHOC',
+						data: khocData,
+						backgroundColor: chartType === 'bar' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(34, 197, 94, 0.2)',
+						borderColor: 'rgba(34, 197, 94, 1)',
 						borderWidth: chartType === 'bar' ? 1 : 2,
 						tension: 0.4,
 						fill: chartType === 'line'
@@ -380,7 +443,7 @@
 	<!-- Chart Type Switcher -->
 	<div class="flex justify-end gap-2 pb-1">
 		<button
-			onclick={() => chartType = 'line'}
+			onclick={() => setChartType('line')}
 			class="filter-tab {chartType === 'line' ? 'filter-tab-active' : ''}"
 		>
 			<svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -389,7 +452,7 @@
 			Line
 		</button>
 		<button
-			onclick={() => chartType = 'bar'}
+			onclick={() => setChartType('bar')}
 			class="filter-tab {chartType === 'bar' ? 'filter-tab-active' : ''}"
 		>
 			<svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
