@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import type { Transaction, OpeningBalance } from '$lib/types';
 import { formatMonthYear } from '$lib/utils';
 
@@ -51,10 +51,6 @@ export class PdfReportService {
       try {
         const form = pdfDoc.getForm();
         const formFields = form.getFields();
-        
-        // Embed Times-Roman font (standard PDF font equivalent to Times New Roman)
-        // Note: Font size is typically controlled by the PDF template's form field properties
-        const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
         
         // Prepare all data values
         const congregationName = data.congregationName || 'Bolaoen Congregation';
@@ -138,11 +134,6 @@ export class PdfReportService {
             // Check if there's a direct mapping
             if (fieldMappings[fieldName]) {
               textField.setText(fieldMappings[fieldName]);
-              
-              // Update appearances with Times New Roman font
-              // Note: Font size is typically controlled by the PDF template's form field properties
-              // The updateAppearances method will apply the Times-Roman font
-              textField.updateAppearances(timesRomanFont);
             }
           } catch {
             // Skip if field can't be accessed

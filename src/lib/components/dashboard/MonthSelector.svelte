@@ -41,7 +41,7 @@
 	<label for="month-selector" class="text-sm font-medium" style="color: var(--color-text-secondary);">
 		View Month:
 	</label>
-	<div class="min-w-[200px]">
+	<div class="min-w-[240px]">
 		<Select
 			id="month-selector"
 			value={selectedMonth}
