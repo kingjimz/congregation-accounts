@@ -1,12 +1,12 @@
 {
 	"name": "Congregation Accounts",
-	"short_name": "CongAccounts",
+	"short_name": "Accounts",
 	"description": "Congregation accounts management application",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#ffffff",
 	"theme_color": "#000000",
-	"orientation": "portrait-primary",
+	"orientation": "any",
 	"icons": [
 		{
 			"src": "/icon-192.png",
