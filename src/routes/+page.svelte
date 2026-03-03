@@ -4,6 +4,7 @@
 	import { openingBalances, openingBalanceStore } from '$lib/stores/opening-balances';
 	import { Alert, Button, Modal, Card, Select } from '$lib/components/ui';
 	import TransactionForm from '$lib/components/forms/TransactionForm.svelte';
+	import CombinedDonationForm from '$lib/components/forms/CombinedDonationForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
@@ -15,6 +16,7 @@
 
 	// UI state
 	let showTransactionForm = $state(false);
+	let addTransactionTab = $state<'donations' | 'expenses'>('donations');
 	let showOpeningBalanceForm = $state(false);
 	let showEditTransactionForm = $state(false);
 	let showDeleteConfirmation = $state(false);
@@ -242,6 +244,52 @@
 			currentPage = 1;
 		} catch (err) {
 			console.error('Failed to add transaction:', err);
+		} finally {
+			submitting = false;
+		}
+	}
+
+	async function handleCombinedDonationSubmit(items: TransactionFormData[]) {
+		submitting = true;
+		try {
+			for (const item of items) {
+				const transactionData = {
+					...item,
+					date: item.date || new Date().toISOString().split('T')[0]
+				};
+				await transactionStore.addTransaction(transactionData);
+				const transactionMonth = transactionData.date.substring(0, 7);
+				if (transactionMonth !== selectedMonth) {
+					selectedMonth = transactionMonth;
+				}
+			}
+			showTransactionForm = false;
+			currentPage = 1;
+		} catch (err) {
+			console.error('Failed to add donations:', err);
+		} finally {
+			submitting = false;
+		}
+	}
+
+	async function handleCombinedExpenseSubmit(items: TransactionFormData[]) {
+		submitting = true;
+		try {
+			for (const item of items) {
+				const transactionData = {
+					...item,
+					date: item.date || new Date().toISOString().split('T')[0]
+				};
+				await transactionStore.addTransaction(transactionData);
+				const transactionMonth = transactionData.date.substring(0, 7);
+				if (transactionMonth !== selectedMonth) {
+					selectedMonth = transactionMonth;
+				}
+			}
+			showTransactionForm = false;
+			currentPage = 1;
+		} catch (err) {
+			console.error('Failed to add expenses:', err);
 		} finally {
 			submitting = false;
 		}
@@ -705,13 +753,46 @@
 		open={showTransactionForm} 
 		title="Add New Transaction"
 		size="md"
-		onclose={() => showTransactionForm = false}
+		onclose={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}
 	>
-		<TransactionForm
-			loading={submitting}
-			onsubmit={handleTransactionSubmit}
-			oncancel={() => showTransactionForm = false}
-		/>
+		<!-- Tabs -->
+		<div class="flex border-b mb-5" style="border-color: var(--color-border-primary);">
+			<button
+				type="button"
+				onclick={() => addTransactionTab = 'donations'}
+				class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
+				style="{addTransactionTab === 'donations'
+					? 'border-color: var(--color-primary, #6366f1); color: var(--color-primary, #6366f1);'
+					: 'border-color: transparent; color: var(--color-text-secondary);'}"
+			>
+				Donations
+			</button>
+			<button
+				type="button"
+				onclick={() => addTransactionTab = 'expenses'}
+				class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
+				style="{addTransactionTab === 'expenses'
+					? 'border-color: var(--color-primary, #6366f1); color: var(--color-primary, #6366f1);'
+					: 'border-color: transparent; color: var(--color-text-secondary);'}"
+			>
+				Expenses
+			</button>
+		</div>
+
+		{#if addTransactionTab === 'donations'}
+			<CombinedDonationForm
+				loading={submitting}
+				onsubmit={handleCombinedDonationSubmit}
+				oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}
+			/>
+		{:else}
+			<TransactionForm
+				loading={submitting}
+				initialData={{ type: 'expense' }}
+				onsubmit={handleTransactionSubmit}
+				oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}
+			/>
+		{/if}
 	</Modal>
 
 	<!-- Opening Balance Form Modal -->

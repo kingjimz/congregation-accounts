@@ -105,6 +105,15 @@
 	function updateCategory(value: string) {
 		formData.category = value;
 		clearFieldError('category');
+
+		// Auto-set description based on category
+		if (value === 'Worldwide Work Donations') {
+			formData.description = 'Contributions to Worldwide Work';
+			clearFieldError('description');
+		} else if (value === 'Local Congregation Donations') {
+			formData.description = 'Contributions - Local Congregation Expenses';
+			clearFieldError('description');
+		}
 	}
 
 	function updateDescription(value: string | number) {
@@ -153,29 +162,17 @@
 
 <div class="space-y-4">
 	<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
-		<!-- Transaction Type -->
-		<div class="grid grid-cols-2 gap-4">
-			<label class="flex items-center">
-				<input
-					type="radio"
-					bind:group={formData.type}
-					value="income"
-					class="mr-2"
-					disabled={loading}
-				/>
-				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Donations</span>
-			</label>
-			<label class="flex items-center">
-				<input
-					type="radio"
-					bind:group={formData.type}
-					value="expense"
-					class="mr-2"
-					disabled={loading}
-				/>
-				<span class="text-sm font-medium" style="color: var(--color-text-secondary);">Expense</span>
-			</label>
-		</div>
+		<!-- Date -->
+		<Input
+			type="date"
+			label="Date"
+			value={formData.date}
+			required
+			disabled={loading}
+			error={errors.date}
+			onchange={updateDate}
+		/>
+
 
 		<!-- Category -->
 		<Select
@@ -225,17 +222,6 @@
 			error={errors.amount}
 			oninput={updateAmount}
 			onkeydown={handleAmountKeydown}
-		/>
-
-		<!-- Date -->
-		<Input
-			type="date"
-			label="Date"
-			value={formData.date}
-			required
-			disabled={loading}
-			error={errors.date}
-			onchange={updateDate}
 		/>
 
 		<!-- Actions -->
