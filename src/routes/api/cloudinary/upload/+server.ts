@@ -5,11 +5,11 @@ import { Readable } from 'stream';
 import { env as svelteEnv } from '$env/dynamic/private';
 
 function getEnv() {
-	const nodeEnv = typeof process !== 'undefined' ? process.env : {};
+	const pe = typeof process !== 'undefined' ? process.env : ({} as Record<string, string | undefined>);
 	return {
-		CLOUDINARY_CLOUD_NAME: svelteEnv.CLOUDINARY_CLOUD_NAME ?? nodeEnv.CLOUDINARY_CLOUD_NAME,
-		CLOUDINARY_API_KEY: svelteEnv.CLOUDINARY_API_KEY ?? nodeEnv.CLOUDINARY_API_KEY,
-		CLOUDINARY_API_SECRET: svelteEnv.CLOUDINARY_API_SECRET ?? nodeEnv.CLOUDINARY_API_SECRET
+		CLOUDINARY_CLOUD_NAME: svelteEnv?.CLOUDINARY_CLOUD_NAME || pe.CLOUDINARY_CLOUD_NAME || '',
+		CLOUDINARY_API_KEY: svelteEnv?.CLOUDINARY_API_KEY || pe.CLOUDINARY_API_KEY || '',
+		CLOUDINARY_API_SECRET: svelteEnv?.CLOUDINARY_API_SECRET || pe.CLOUDINARY_API_SECRET || ''
 	};
 }
 

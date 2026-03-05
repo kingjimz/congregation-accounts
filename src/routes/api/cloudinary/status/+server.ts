@@ -2,32 +2,33 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env as svelteEnv } from '$env/dynamic/private';
 
-/** Get env - prefer SvelteKit, fallback to process.env (e.g. Netlify injects at runtime). */
 function getEnv() {
-	const nodeEnv = typeof process !== 'undefined' ? process.env : {};
+	const pe = typeof process !== 'undefined' ? process.env : ({} as Record<string, string | undefined>);
 	return {
-		CLOUDINARY_CLOUD_NAME: svelteEnv.CLOUDINARY_CLOUD_NAME ?? nodeEnv.CLOUDINARY_CLOUD_NAME,
-		CLOUDINARY_API_KEY: svelteEnv.CLOUDINARY_API_KEY ?? nodeEnv.CLOUDINARY_API_KEY,
-		CLOUDINARY_API_SECRET: svelteEnv.CLOUDINARY_API_SECRET ?? nodeEnv.CLOUDINARY_API_SECRET
+		CLOUDINARY_CLOUD_NAME: svelteEnv?.CLOUDINARY_CLOUD_NAME || pe.CLOUDINARY_CLOUD_NAME || '',
+		CLOUDINARY_API_KEY: svelteEnv?.CLOUDINARY_API_KEY || pe.CLOUDINARY_API_KEY || '',
+		CLOUDINARY_API_SECRET: svelteEnv?.CLOUDINARY_API_SECRET || pe.CLOUDINARY_API_SECRET || ''
 	};
 }
 
-/** GET /api/cloudinary/status - returns whether Cloudinary env vars are set (for UI to show setup message). */
+/** GET /api/cloudinary/status */
 export const GET: RequestHandler = async ({ url }) => {
 	const env = getEnv();
 	const configured = !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
 
-	// ?debug=1 returns which vars are set (safe for production - no values)
 	const debug = url.searchParams.get('debug') === '1';
 	if (debug) {
+		const pe = typeof process !== 'undefined' ? process.env : ({} as Record<string, string | undefined>);
 		return json({
 			configured,
+			svelteEnvKeys: svelteEnv ? Object.keys(svelteEnv).filter((k) => k.startsWith('CLOUD')) : [],
+			processEnvKeys: pe ? Object.keys(pe).filter((k) => k.startsWith('CLOUD')) : [],
 			env: {
 				CLOUDINARY_CLOUD_NAME: !!env.CLOUDINARY_CLOUD_NAME,
 				CLOUDINARY_API_KEY: !!env.CLOUDINARY_API_KEY,
 				CLOUDINARY_API_SECRET: !!env.CLOUDINARY_API_SECRET
 			},
-			note: 'If any are false, set them in Netlify → Site settings → Environment variables and set Scope to "All" (or include "Functions"). Then redeploy.'
+			note: 'If any are false, set them in Netlify → Site settings → Environment variables, Scope = "All" (or include "Functions"), then redeploy.'
 		});
 	}
 
