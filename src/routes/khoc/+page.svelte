@@ -6,6 +6,7 @@
 	import KhocTransactionForm from '$lib/components/forms/KhocTransactionForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
+	import MonthlyImages from '$lib/components/dashboard/MonthlyImages.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import { formatCurrency, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { TransactionFormData, Transaction } from '$lib/types';
@@ -594,6 +595,9 @@
 					</div>
 				</div>
 			</Card>
+
+			<!-- Receipts (KHOC-only images, filtered by month) -->
+			<MonthlyImages selectedMonth={selectedMonth} source="khoc" />
 
 			<!-- Transaction Table - Full Width (matches Congregation Accounts dashboard) -->
 			<div class="w-full">

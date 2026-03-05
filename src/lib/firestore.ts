@@ -34,11 +34,23 @@ export interface OpeningBalance {
 	updatedAt?: Timestamp;
 }
 
+// Monthly image (Cloudinary URL stored per month)
+export interface MonthlyImage {
+	id?: string;
+	month: string; // YYYY-MM format
+	url: string; // Cloudinary secure_url
+	publicId: string; // Cloudinary public_id for delete
+	caption?: string;
+	uploadedAt?: Timestamp;
+}
+
 // Firestore collection references
 const TRANSACTIONS_COLLECTION = 'transactions';
 const OPENING_BALANCES_COLLECTION = 'opening_balances';
 const KHOC_TRANSACTIONS_COLLECTION = 'khoc_transactions';
 const KHOC_OPENING_BALANCES_COLLECTION = 'khoc_opening_balances';
+const MONTHLY_IMAGES_COLLECTION = 'monthly_images';
+const KHOC_MONTHLY_IMAGES_COLLECTION = 'khoc_monthly_images';
 
 // Add a new transaction
 export async function addTransaction(transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) {
@@ -275,6 +287,117 @@ export async function deleteOpeningBalance(month: string) {
 		}
 	} catch (error) {
 		console.error('Error deleting opening balance:', error);
+		throw error;
+	}
+}
+
+// ============================================
+// MONTHLY IMAGES (Cloudinary)
+// ============================================
+
+export async function addMonthlyImage(image: Omit<MonthlyImage, 'id' | 'uploadedAt'>) {
+	try {
+		const data: Record<string, unknown> = {
+			month: image.month,
+			url: image.url,
+			publicId: image.publicId,
+			uploadedAt: Timestamp.now()
+		};
+		if (image.caption !== undefined && image.caption !== '') {
+			data.caption = image.caption;
+		}
+		const docRef = await addDoc(collection(db, MONTHLY_IMAGES_COLLECTION), data);
+		return docRef.id;
+	} catch (error) {
+		console.error('Error adding monthly image:', error);
+		throw error;
+	}
+}
+
+export async function getMonthlyImages(month: string): Promise<MonthlyImage[]> {
+	try {
+		const q = query(
+			collection(db, MONTHLY_IMAGES_COLLECTION),
+			where('month', '==', month)
+		);
+		const querySnapshot = await getDocs(q);
+		const items = querySnapshot.docs.map(doc => ({
+			id: doc.id,
+			...doc.data()
+		} as MonthlyImage));
+		// Sort by uploadedAt descending in memory (avoids composite index)
+		items.sort((a, b) => {
+			const aTime = a.uploadedAt?.toMillis?.() ?? 0;
+			const bTime = b.uploadedAt?.toMillis?.() ?? 0;
+			return bTime - aTime;
+		});
+		return items;
+	} catch (error) {
+		console.error('Error getting monthly images:', error);
+		throw error;
+	}
+}
+
+export async function deleteMonthlyImage(id: string) {
+	try {
+		await deleteDoc(doc(db, MONTHLY_IMAGES_COLLECTION, id));
+	} catch (error) {
+		console.error('Error deleting monthly image:', error);
+		throw error;
+	}
+}
+
+// ============================================
+// KHOC MONTHLY IMAGES (separate from congregation)
+// ============================================
+
+export async function addKhocMonthlyImage(image: Omit<MonthlyImage, 'id' | 'uploadedAt'>) {
+	try {
+		const data: Record<string, unknown> = {
+			month: image.month,
+			url: image.url,
+			publicId: image.publicId,
+			uploadedAt: Timestamp.now()
+		};
+		if (image.caption !== undefined && image.caption !== '') {
+			data.caption = image.caption;
+		}
+		const docRef = await addDoc(collection(db, KHOC_MONTHLY_IMAGES_COLLECTION), data);
+		return docRef.id;
+	} catch (error) {
+		console.error('Error adding KHOC monthly image:', error);
+		throw error;
+	}
+}
+
+export async function getKhocMonthlyImages(month: string): Promise<MonthlyImage[]> {
+	try {
+		const q = query(
+			collection(db, KHOC_MONTHLY_IMAGES_COLLECTION),
+			where('month', '==', month)
+		);
+		const querySnapshot = await getDocs(q);
+		const items = querySnapshot.docs.map(doc => ({
+			id: doc.id,
+			...doc.data()
+		} as MonthlyImage));
+		items.sort((a, b) => {
+			const aTime = a.uploadedAt?.toMillis?.() ?? 0;
+			const bTime = b.uploadedAt?.toMillis?.() ?? 0;
+			return bTime - aTime;
+		});
+		return items;
+	} catch (error) {
+		console.error('Error getting KHOC monthly images:', error);
+		throw error;
+	}
+}
+
+export async function deleteKhocMonthlyImage(id: string) {
+	try {
+		await deleteDoc(doc(db, KHOC_MONTHLY_IMAGES_COLLECTION, id));
+	} catch (error) {
+		console.error('Error deleting KHOC monthly image:', error);
 		throw error;
 	}
 }

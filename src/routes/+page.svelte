@@ -9,6 +9,7 @@
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
 	import ChartSummary from '$lib/components/dashboard/ChartSummary.svelte';
+	import MonthlyImages from '$lib/components/dashboard/MonthlyImages.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
 	import { formatCurrency, formatMonthYear, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
@@ -633,6 +634,9 @@
 
 		<!-- Chart Summary & Analysis -->
 		<ChartSummary />
+
+		<!-- Monthly Images (Cloudinary) -->
+		<MonthlyImages selectedMonth={selectedMonth} />
 
 		<!-- Transaction Table - Full Width -->
 		<div class="w-full">
