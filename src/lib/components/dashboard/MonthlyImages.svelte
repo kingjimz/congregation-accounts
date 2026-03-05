@@ -104,10 +104,39 @@
 		}
 	}
 
+	/** Track which images have been revealed (by publicId). All hidden by default. */
+	let revealedImages = $state<Set<string>>(new Set());
+
+	function toggleReveal(publicId: string) {
+		const next = new Set(revealedImages);
+		if (next.has(publicId)) {
+			next.delete(publicId);
+		} else {
+			next.add(publicId);
+		}
+		revealedImages = next;
+	}
+
+	function showAll() {
+		revealedImages = new Set($monthlyImages.map((img) => img.publicId));
+	}
+
+	function hideAll() {
+		revealedImages = new Set();
+	}
+
+	let allRevealed = $derived(
+		$monthlyImages.length > 0 && revealedImages.size === $monthlyImages.length
+	);
+
+	$effect(() => {
+		selectedMonth;
+		revealedImages = new Set();
+	});
+
 	/** Cloudinary thumbnail URL: smaller size + auto format/quality to save bandwidth (free tier). */
 	function thumbnailUrl(url: string): string {
 		if (!url || !url.includes('cloudinary.com')) return url;
-		// Insert transformation after /upload/ : w_320 = max width 320px, c_limit = keep aspect, q_auto, f_auto = less bandwidth
 		return url.replace('/upload/', '/upload/w_320,c_limit,q_auto,f_auto/');
 	}
 </script>
@@ -212,39 +241,92 @@
 						<p class="images-empty__hint">Use the upload area above to add receipts or photos.</p>
 					{/if}
 				</div>
-			{:else}
-				<div class="images-grid" role="list">
-					{#each $monthlyImages as img (img.publicId)}
-						<article class="images-grid__item" role="listitem">
-							<a
-								href={img.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="images-grid__link"
-							>
-								<img
-									src={thumbnailUrl(img.url)}
-									alt={img.caption ?? 'Uploaded image'}
-									class="images-grid__img"
-									loading="lazy"
-									decoding="async"
-								/>
-							</a>
+		{:else}
+			<div class="images-toolbar">
+				<button
+					type="button"
+					class="images-toolbar__toggle"
+					onclick={() => allRevealed ? hideAll() : showAll()}
+				>
+					{#if allRevealed}
+						<svg class="images-toolbar__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+							<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+							<line x1="1" y1="1" x2="23" y2="23" />
+						</svg>
+						Hide All
+					{:else}
+						<svg class="images-toolbar__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+							<circle cx="12" cy="12" r="3" />
+						</svg>
+						Show All
+					{/if}
+				</button>
+			</div>
+			<div class="images-grid" role="list">
+				{#each $monthlyImages as img (img.publicId)}
+					{@const revealed = revealedImages.has(img.publicId)}
+					<article class="images-grid__item" role="listitem">
+						<a
+							href={revealed ? img.url : undefined}
+							target={revealed ? '_blank' : undefined}
+							rel={revealed ? 'noopener noreferrer' : undefined}
+							class="images-grid__link"
+							onclick={(e) => { if (!revealed) e.preventDefault(); }}
+						>
+							<img
+								src={thumbnailUrl(img.url)}
+								alt={img.caption ?? 'Uploaded image'}
+								class="images-grid__img"
+								class:images-grid__img--hidden={!revealed}
+								loading="lazy"
+								decoding="async"
+							/>
+						</a>
+						{#if !revealed}
 							<button
 								type="button"
-								onclick={(e) => { e.preventDefault(); handleDelete(img); }}
-								class="images-grid__delete"
-								title="Delete image"
-								aria-label="Delete image"
+								class="images-grid__cover"
+								onclick={() => toggleReveal(img.publicId)}
+								aria-label="Reveal receipt"
 							>
-								<svg class="images-grid__delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+								<svg class="images-grid__cover-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+									<circle cx="12" cy="12" r="3" />
+								</svg>
+								<span class="images-grid__cover-label">Tap to view</span>
+							</button>
+						{:else}
+							<button
+								type="button"
+								class="images-grid__hide"
+								onclick={() => toggleReveal(img.publicId)}
+								title="Hide receipt"
+								aria-label="Hide receipt"
+							>
+								<svg class="images-grid__hide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+									<path stroke-linecap="round" stroke-linejoin="round" d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+									<line x1="1" y1="1" x2="23" y2="23" />
 								</svg>
 							</button>
-						</article>
-					{/each}
-				</div>
-			{/if}
+						{/if}
+						<button
+							type="button"
+							onclick={(e) => { e.preventDefault(); handleDelete(img); }}
+							class="images-grid__delete"
+							title="Delete image"
+							aria-label="Delete image"
+						>
+							<svg class="images-grid__delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+							</svg>
+						</button>
+					</article>
+				{/each}
+			</div>
+		{/if}
 		</div>
 	{/if}
 </Card>
@@ -389,44 +471,29 @@
 		margin: 0;
 	}
 
-	/* ----- Image grid: responsive ----- */
+	/* ----- Image grid: horizontal scroll ----- */
 	.images-grid {
-		display: grid;
+		display: flex;
 		gap: 0.75rem;
 		list-style: none;
 		margin: 0;
-		padding: 0;
+		padding: 0.25rem 0;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scroll-snap-type: x mandatory;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-border-secondary) transparent;
 	}
-	/* Mobile: 2 columns, compact gap */
-	.images-grid {
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.5rem;
+	.images-grid::-webkit-scrollbar {
+		height: 6px;
 	}
-	/* Tablet: 3–4 columns */
-	@media (min-width: 640px) {
-		.images-grid {
-			grid-template-columns: repeat(3, 1fr);
-			gap: 0.75rem;
-		}
+	.images-grid::-webkit-scrollbar-track {
+		background: transparent;
 	}
-	@media (min-width: 768px) {
-		.images-grid {
-			grid-template-columns: repeat(4, 1fr);
-			gap: 0.875rem;
-		}
-	}
-	/* Desktop: 4–5 columns, larger gap */
-	@media (min-width: 1024px) {
-		.images-grid {
-			grid-template-columns: repeat(4, 1fr);
-			gap: 1rem;
-		}
-	}
-	@media (min-width: 1280px) {
-		.images-grid {
-			grid-template-columns: repeat(5, 1fr);
-			gap: 1rem;
-		}
+	.images-grid::-webkit-scrollbar-thumb {
+		background: var(--color-border-secondary);
+		border-radius: 3px;
 	}
 
 	.images-grid__item {
@@ -438,6 +505,18 @@
 		box-shadow: var(--shadow-sm);
 		transition: box-shadow 0.2s, border-color 0.2s;
 		aspect-ratio: 1;
+		flex: 0 0 140px;
+		scroll-snap-align: start;
+	}
+	@media (min-width: 640px) {
+		.images-grid__item {
+			flex: 0 0 160px;
+		}
+	}
+	@media (min-width: 1024px) {
+		.images-grid__item {
+			flex: 0 0 180px;
+		}
 	}
 	.images-grid__item:hover {
 		box-shadow: var(--shadow-md);
@@ -497,5 +576,116 @@
 	.images-grid__delete-icon {
 		width: 1.125rem;
 		height: 1.125rem;
+	}
+
+	/* ----- Toolbar (count + show/hide all) ----- */
+	.images-toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+	}
+	.images-toolbar__toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.3rem 0.65rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		background: var(--color-surface-primary);
+		border: 1px solid var(--color-border-primary);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.images-toolbar__toggle:hover {
+		color: var(--color-text-primary);
+		border-color: var(--color-border-secondary);
+		background: var(--color-surface-secondary);
+	}
+	.images-toolbar__toggle-icon {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	/* ----- Cover overlay (hidden state) ----- */
+	.images-grid__img--hidden {
+		filter: blur(18px) saturate(0.3);
+		transform: scale(1.15);
+	}
+	.images-grid__cover {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem;
+		background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent);
+		border: none;
+		cursor: pointer;
+		transition: background 0.2s;
+		-webkit-tap-highlight-color: transparent;
+	}
+	.images-grid__cover:hover {
+		background: color-mix(in srgb, var(--color-bg-secondary) 50%, transparent);
+	}
+	.images-grid__cover-icon {
+		width: 2rem;
+		height: 2rem;
+		color: var(--color-text-tertiary);
+		transition: transform 0.2s, color 0.2s;
+	}
+	.images-grid__cover:hover .images-grid__cover-icon {
+		transform: scale(1.1);
+		color: var(--color-text-secondary);
+	}
+	.images-grid__cover-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-text-tertiary);
+	}
+
+	/* ----- Hide button (revealed state) ----- */
+	.images-grid__hide {
+		position: absolute;
+		top: 0.5rem;
+		left: 0.5rem;
+		width: 2.25rem;
+		height: 2.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: none;
+		border-radius: 8px;
+		background: rgba(0, 0, 0, 0.5);
+		color: #fff;
+		cursor: pointer;
+		transition: background 0.2s, transform 0.15s;
+		-webkit-tap-highlight-color: transparent;
+	}
+	.images-grid__hide:hover {
+		background: rgba(0, 0, 0, 0.7);
+	}
+	.images-grid__hide:active {
+		transform: scale(0.95);
+	}
+	.images-grid__hide-icon {
+		width: 1.125rem;
+		height: 1.125rem;
+	}
+	@media (max-width: 768px) {
+		.images-grid__hide {
+			opacity: 1;
+		}
+	}
+	@media (min-width: 769px) {
+		.images-grid__hide {
+			opacity: 0;
+		}
+		.images-grid__item:hover .images-grid__hide {
+			opacity: 1;
+		}
 	}
 </style>

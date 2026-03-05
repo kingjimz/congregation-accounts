@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import type { Transaction, OpeningBalance } from '$lib/types';
 import { formatMonthYear } from '$lib/utils';
 
@@ -46,6 +46,9 @@ export class PdfReportService {
       if (pages.length === 0) {
         throw new Error('Template PDF has no pages.');
       }
+
+      // Embed Times Roman font for form fields
+      const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
 
       // Try to access form fields and fill them directly
       try {
@@ -128,13 +131,12 @@ export class PdfReportService {
               return;
             }
             
-            // Try to get the text field
             const textField = form.getTextField(fieldName);
             
-            // Check if there's a direct mapping
             if (fieldMappings[fieldName]) {
               textField.setText(fieldMappings[fieldName]);
             }
+            textField.updateAppearances(timesRomanFont);
           } catch {
             // Skip if field can't be accessed
           }
