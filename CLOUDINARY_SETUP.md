@@ -2,6 +2,10 @@
 
 If you see **"Cloudinary is not configured"** or **"Insufficient permissions"**, follow these steps.
 
+## Important: Netlify must run API routes (serverless)
+
+This app uses **adapter-netlify** so that `/api/cloudinary/*` runs as **Netlify Functions** in production. If the project was ever built with **adapter-static**, API routes do not run on Netlify (only static files are deployed), so Cloudinary would work locally but not in production. Ensure `svelte.config.js` uses `@sveltejs/adapter-netlify`, not `adapter-static`.
+
 ## 1. Configure Cloudinary
 
 1. Sign up at [cloudinary.com](https://cloudinary.com) and open the [Dashboard](https://cloudinary.com/console).
