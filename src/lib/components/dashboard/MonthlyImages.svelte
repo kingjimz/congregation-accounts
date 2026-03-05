@@ -121,15 +121,18 @@
 		<div class="rounded-lg p-4 border" style="background: var(--color-surface-primary); border-color: var(--color-border-primary);">
 			<p class="text-sm font-medium mb-2" style="color: var(--color-text-primary);">Cloudinary is not configured</p>
 			<p class="text-sm mb-3" style="color: var(--color-text-secondary);">
-				To upload images, set these environment variables (e.g. in Netlify: Site settings → Environment variables):
+				Set these in Netlify: <strong>Site settings → Environment variables</strong>. For each variable, set <strong>Scope to “All”</strong> (or at least include <strong>Functions</strong>) so they are available at runtime.
 			</p>
 			<ul class="text-sm font-mono space-y-1 mb-3 pl-4" style="color: var(--color-text-secondary);">
 				<li>CLOUDINARY_CLOUD_NAME</li>
 				<li>CLOUDINARY_API_KEY</li>
 				<li>CLOUDINARY_API_SECRET</li>
 			</ul>
+			<p class="text-xs mb-2" style="color: var(--color-text-tertiary);">
+				Get values from your <a href="https://cloudinary.com/console" target="_blank" rel="noopener noreferrer" class="underline">Cloudinary dashboard</a>. Then <strong>trigger a new deploy</strong>.
+			</p>
 			<p class="text-xs" style="color: var(--color-text-tertiary);">
-				Get them from your <a href="https://cloudinary.com/console" target="_blank" rel="noopener noreferrer" class="underline">Cloudinary dashboard</a>. Then redeploy the app.
+				<a href="/api/cloudinary/status?debug=1" target="_blank" rel="noopener noreferrer" class="underline">Check which vars are set in production (debug)</a>
 			</p>
 		</div>
 	{:else}

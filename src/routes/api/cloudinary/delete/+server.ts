@@ -1,9 +1,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { v2 as cloudinary } from 'cloudinary';
-import { env } from '$env/dynamic/private';
+import { env as svelteEnv } from '$env/dynamic/private';
+
+function getEnv() {
+	const nodeEnv = typeof process !== 'undefined' ? process.env : {};
+	return {
+		CLOUDINARY_CLOUD_NAME: svelteEnv.CLOUDINARY_CLOUD_NAME ?? nodeEnv.CLOUDINARY_CLOUD_NAME,
+		CLOUDINARY_API_KEY: svelteEnv.CLOUDINARY_API_KEY ?? nodeEnv.CLOUDINARY_API_KEY,
+		CLOUDINARY_API_SECRET: svelteEnv.CLOUDINARY_API_SECRET ?? nodeEnv.CLOUDINARY_API_SECRET
+	};
+}
 
 export const DELETE: RequestHandler = async ({ request }) => {
+	const env = getEnv();
 	const cloudName = env.CLOUDINARY_CLOUD_NAME;
 	const apiKey = env.CLOUDINARY_API_KEY;
 	const apiSecret = env.CLOUDINARY_API_SECRET;

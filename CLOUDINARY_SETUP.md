@@ -27,7 +27,10 @@ Restart the dev server after changing `.env`.
    - **Key:** `CLOUDINARY_CLOUD_NAME` → **Value:** your cloud name  
    - **Key:** `CLOUDINARY_API_KEY` → **Value:** your API key  
    - **Key:** `CLOUDINARY_API_SECRET` → **Value:** your API secret  
-3. Trigger a new **Deploy** so the server uses the new variables.
+3. **Important:** For each variable, set **Scope** to **All** (or at least include **Functions**). If Scope is only “Builds”, the variables will not be available to the upload/delete API at runtime and you’ll still see “Cloudinary is not configured”.
+4. Trigger a new **Deploy** so the server uses the new variables.
+
+**Check in production:** Open `https://your-site.netlify.app/api/cloudinary/status?debug=1` to see which of the three variables are set (no values are shown). If any are `false`, fix Scope and redeploy.
 
 ---
 
