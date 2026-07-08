@@ -3,7 +3,7 @@
   publish = "build"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   PUBLIC_FIREBASE_API_KEY = "AIzaSyCOb4ZPj9AytUUqAzuD1UmcSDDwuO8wSCc"
   PUBLIC_FIREBASE_AUTH_DOMAIN = "congregation-reports-c3114.firebaseapp.com"
   PUBLIC_FIREBASE_PROJECT_ID = "congregation-reports-c3114"
