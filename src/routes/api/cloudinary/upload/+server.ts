@@ -27,9 +27,14 @@ export const POST: RequestHandler = async ({ request }) => {
 		const file = formData.get('file') as File | null;
 		const month = formData.get('month') as string | null;
 		const source = (formData.get('source') as string | null) || 'congregation';
+		const userId = formData.get('userId') as string | null;
 
 		if (!file || !month || typeof month !== 'string') {
 			return json({ error: 'Missing file or month' }, { status: 400 });
+		}
+
+		if (!userId || typeof userId !== 'string') {
+			return json({ error: 'Missing userId' }, { status: 401 });
 		}
 
 		// Validate month format YYYY-MM
@@ -42,8 +47,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const folder =
 			source === 'khoc'
-				? `congregation-accounts/khoc/${month}`
-				: `congregation-accounts/${month}`;
+				? `congregation-accounts/${userId}/khoc/${month}`
+				: `congregation-accounts/${userId}/${month}`;
 
 		const result = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
 			const stream = cloudinary.uploader.upload_stream(

@@ -5,6 +5,7 @@ import {
 	updateDoc,
 	deleteDoc,
 	query,
+	where,
 	orderBy,
 	onSnapshot,
 	type Unsubscribe
@@ -18,11 +19,12 @@ export class NoteService {
 	/**
 	 * Create a new note
 	 */
-	static async createNote(data: CreateNoteData): Promise<string> {
+	static async createNote(userId: string, data: Omit<CreateNoteData, 'userId'>): Promise<string> {
 		const notesCollection = collection(db, this.COLLECTION_NAME);
 
 		const noteData = {
 			...data,
+			userId,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		};
@@ -54,14 +56,16 @@ export class NoteService {
 	}
 
 	/**
-	 * Subscribe to all notes
+	 * Subscribe to all notes for a specific user
 	 */
 	static subscribeToNotes(
+		userId: string,
 		callback: (notes: Note[]) => void,
 		errorCallback?: (error: Error) => void
 	): Unsubscribe {
 		const notesQuery = query(
 			collection(db, this.COLLECTION_NAME),
+			where('userId', '==', userId),
 			orderBy('updatedAt', 'desc')
 		);
 

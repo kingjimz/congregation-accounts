@@ -15,6 +15,7 @@ import { db } from './firebase';
 // Transaction interface matching your existing structure
 export interface Transaction {
 	id?: string; // Optional for new transactions
+	userId: string;
 	date: string; // ISO date string (YYYY-MM-DD)
 	description: string;
 	category: string;
@@ -27,6 +28,7 @@ export interface Transaction {
 // Opening Balance interface for monthly balance tracking
 export interface OpeningBalance {
 	id?: string;
+	userId: string;
 	month: string; // YYYY-MM format
 	balance: number; // Manual opening balance
 	note?: string; // Optional note for this balance
@@ -37,6 +39,7 @@ export interface OpeningBalance {
 // Monthly image (Cloudinary URL stored per month)
 export interface MonthlyImage {
 	id?: string;
+	userId: string;
 	month: string; // YYYY-MM format
 	url: string; // Cloudinary secure_url
 	publicId: string; // Cloudinary public_id for delete
@@ -53,10 +56,11 @@ const MONTHLY_IMAGES_COLLECTION = 'monthly_images';
 const KHOC_MONTHLY_IMAGES_COLLECTION = 'khoc_monthly_images';
 
 // Add a new transaction
-export async function addTransaction(transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function addTransaction(userId: string, transaction: Omit<Transaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
 	try {
 		const docRef = await addDoc(collection(db, TRANSACTIONS_COLLECTION), {
 			...transaction,
+			userId,
 			createdAt: Timestamp.now(),
 			updatedAt: Timestamp.now()
 		});
@@ -68,14 +72,15 @@ export async function addTransaction(transaction: Omit<Transaction, 'id' | 'crea
 }
 
 // Get all transactions
-export async function getAllTransactions(): Promise<Transaction[]> {
+export async function getAllTransactions(userId: string): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			orderBy('date', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		return querySnapshot.docs.map(doc => ({
 			id: doc.id,
 			...doc.data()
@@ -87,16 +92,17 @@ export async function getAllTransactions(): Promise<Transaction[]> {
 }
 
 // Get transactions by date range
-export async function getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+export async function getTransactionsByDateRange(userId: string, startDate: string, endDate: string): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			where('date', '>=', startDate),
 			where('date', '<=', endDate),
 			orderBy('date', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		return querySnapshot.docs.map(doc => ({
 			id: doc.id,
 			...doc.data()
@@ -108,15 +114,16 @@ export async function getTransactionsByDateRange(startDate: string, endDate: str
 }
 
 // Get transactions by type
-export async function getTransactionsByType(type: 'income' | 'expense'): Promise<Transaction[]> {
+export async function getTransactionsByType(userId: string, type: 'income' | 'expense'): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			where('type', '==', type),
 			orderBy('date', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		return querySnapshot.docs.map(doc => ({
 			id: doc.id,
 			...doc.data()
@@ -128,15 +135,16 @@ export async function getTransactionsByType(type: 'income' | 'expense'): Promise
 }
 
 // Get transactions by category
-export async function getTransactionsByCategory(category: string): Promise<Transaction[]> {
+export async function getTransactionsByCategory(userId: string, category: string): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			where('category', '==', category),
 			orderBy('date', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		return querySnapshot.docs.map(doc => ({
 			id: doc.id,
 			...doc.data()
@@ -172,18 +180,22 @@ export async function deleteTransaction(id: string) {
 }
 
 // Get unique categories (useful for filter dropdowns)
-export async function getUniqueCategories(): Promise<string[]> {
+export async function getUniqueCategories(userId: string): Promise<string[]> {
 	try {
-		const querySnapshot = await getDocs(collection(db, TRANSACTIONS_COLLECTION));
+		const q = query(
+			collection(db, TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId)
+		);
+		const querySnapshot = await getDocs(q);
 		const categories = new Set<string>();
-		
+
 		querySnapshot.docs.forEach(doc => {
 			const data = doc.data();
 			if (data.category) {
 				categories.add(data.category);
 			}
 		});
-		
+
 		return Array.from(categories).sort();
 	} catch (error) {
 		console.error('Error getting unique categories:', error);
@@ -194,11 +206,12 @@ export async function getUniqueCategories(): Promise<string[]> {
 // Opening Balance Functions
 
 // Add or update opening balance for a month
-export async function setOpeningBalance(month: string, balance: number, note?: string, date?: string) {
+export async function setOpeningBalance(userId: string, month: string, balance: number, note?: string, date?: string) {
 	try {
 		// Check if opening balance already exists for this month
 		const q = query(
 			collection(db, OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
@@ -216,6 +229,7 @@ export async function setOpeningBalance(month: string, balance: number, note?: s
 		} else {
 			// Create new opening balance
 			const docRef = await addDoc(collection(db, OPENING_BALANCES_COLLECTION), {
+				userId,
 				month,
 				balance,
 				note: note || '',
@@ -231,14 +245,15 @@ export async function setOpeningBalance(month: string, balance: number, note?: s
 }
 
 // Get opening balance for a specific month
-export async function getOpeningBalance(month: string): Promise<OpeningBalance | null> {
+export async function getOpeningBalance(userId: string, month: string): Promise<OpeningBalance | null> {
 	try {
 		const q = query(
 			collection(db, OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		if (!querySnapshot.empty) {
 			const doc = querySnapshot.docs[0];
 			return {
@@ -246,7 +261,7 @@ export async function getOpeningBalance(month: string): Promise<OpeningBalance |
 				...doc.data()
 			} as OpeningBalance;
 		}
-		
+
 		return null;
 	} catch (error) {
 		console.error('Error getting opening balance:', error);
@@ -255,14 +270,15 @@ export async function getOpeningBalance(month: string): Promise<OpeningBalance |
 }
 
 // Get all opening balances
-export async function getAllOpeningBalances(): Promise<OpeningBalance[]> {
+export async function getAllOpeningBalances(userId: string): Promise<OpeningBalance[]> {
 	try {
 		const q = query(
 			collection(db, OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			orderBy('month', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
-		
+
 		return querySnapshot.docs.map(doc => ({
 			id: doc.id,
 			...doc.data()
@@ -274,10 +290,11 @@ export async function getAllOpeningBalances(): Promise<OpeningBalance[]> {
 }
 
 // Delete opening balance for a month
-export async function deleteOpeningBalance(month: string) {
+export async function deleteOpeningBalance(userId: string, month: string) {
 	try {
 		const q = query(
 			collection(db, OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
@@ -295,9 +312,10 @@ export async function deleteOpeningBalance(month: string) {
 // MONTHLY IMAGES (Cloudinary)
 // ============================================
 
-export async function addMonthlyImage(image: Omit<MonthlyImage, 'id' | 'uploadedAt'>) {
+export async function addMonthlyImage(userId: string, image: Omit<MonthlyImage, 'id' | 'userId' | 'uploadedAt'>) {
 	try {
 		const data: Record<string, unknown> = {
+			userId,
 			month: image.month,
 			url: image.url,
 			publicId: image.publicId,
@@ -314,10 +332,11 @@ export async function addMonthlyImage(image: Omit<MonthlyImage, 'id' | 'uploaded
 	}
 }
 
-export async function getMonthlyImages(month: string): Promise<MonthlyImage[]> {
+export async function getMonthlyImages(userId: string, month: string): Promise<MonthlyImage[]> {
 	try {
 		const q = query(
 			collection(db, MONTHLY_IMAGES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
@@ -351,9 +370,10 @@ export async function deleteMonthlyImage(id: string) {
 // KHOC MONTHLY IMAGES (separate from congregation)
 // ============================================
 
-export async function addKhocMonthlyImage(image: Omit<MonthlyImage, 'id' | 'uploadedAt'>) {
+export async function addKhocMonthlyImage(userId: string, image: Omit<MonthlyImage, 'id' | 'userId' | 'uploadedAt'>) {
 	try {
 		const data: Record<string, unknown> = {
+			userId,
 			month: image.month,
 			url: image.url,
 			publicId: image.publicId,
@@ -370,10 +390,11 @@ export async function addKhocMonthlyImage(image: Omit<MonthlyImage, 'id' | 'uplo
 	}
 }
 
-export async function getKhocMonthlyImages(month: string): Promise<MonthlyImage[]> {
+export async function getKhocMonthlyImages(userId: string, month: string): Promise<MonthlyImage[]> {
 	try {
 		const q = query(
 			collection(db, KHOC_MONTHLY_IMAGES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
@@ -407,10 +428,11 @@ export async function deleteKhocMonthlyImage(id: string) {
 // ============================================
 
 // Add a new KHOC transaction
-export async function addKhocTransaction(transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function addKhocTransaction(userId: string, transaction: Omit<Transaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
 	try {
 		const docRef = await addDoc(collection(db, KHOC_TRANSACTIONS_COLLECTION), {
 			...transaction,
+			userId,
 			createdAt: Timestamp.now(),
 			updatedAt: Timestamp.now()
 		});
@@ -422,10 +444,11 @@ export async function addKhocTransaction(transaction: Omit<Transaction, 'id' | '
 }
 
 // Get all KHOC transactions
-export async function getAllKhocTransactions(): Promise<Transaction[]> {
+export async function getAllKhocTransactions(userId: string): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, KHOC_TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			orderBy('date', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
@@ -441,10 +464,11 @@ export async function getAllKhocTransactions(): Promise<Transaction[]> {
 }
 
 // Get KHOC transactions by date range
-export async function getKhocTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+export async function getKhocTransactionsByDateRange(userId: string, startDate: string, endDate: string): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, KHOC_TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			where('date', '>=', startDate),
 			where('date', '<=', endDate),
 			orderBy('date', 'desc')
@@ -462,10 +486,11 @@ export async function getKhocTransactionsByDateRange(startDate: string, endDate:
 }
 
 // Get KHOC transactions by type
-export async function getKhocTransactionsByType(type: 'income' | 'expense'): Promise<Transaction[]> {
+export async function getKhocTransactionsByType(userId: string, type: 'income' | 'expense'): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, KHOC_TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			where('type', '==', type),
 			orderBy('date', 'desc')
 		);
@@ -482,10 +507,11 @@ export async function getKhocTransactionsByType(type: 'income' | 'expense'): Pro
 }
 
 // Get KHOC transactions by category
-export async function getKhocTransactionsByCategory(category: string): Promise<Transaction[]> {
+export async function getKhocTransactionsByCategory(userId: string, category: string): Promise<Transaction[]> {
 	try {
 		const q = query(
 			collection(db, KHOC_TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId),
 			where('category', '==', category),
 			orderBy('date', 'desc')
 		);
@@ -526,9 +552,13 @@ export async function deleteKhocTransaction(id: string) {
 }
 
 // Get unique KHOC categories
-export async function getUniqueKhocCategories(): Promise<string[]> {
+export async function getUniqueKhocCategories(userId: string): Promise<string[]> {
 	try {
-		const querySnapshot = await getDocs(collection(db, KHOC_TRANSACTIONS_COLLECTION));
+		const q = query(
+			collection(db, KHOC_TRANSACTIONS_COLLECTION),
+			where('userId', '==', userId)
+		);
+		const querySnapshot = await getDocs(q);
 		const categories = new Set<string>();
 
 		querySnapshot.docs.forEach(doc => {
@@ -550,10 +580,11 @@ export async function getUniqueKhocCategories(): Promise<string[]> {
 // ============================================
 
 // Add or update KHOC opening balance for a month
-export async function setKhocOpeningBalance(month: string, balance: number, note?: string, date?: string) {
+export async function setKhocOpeningBalance(userId: string, month: string, balance: number, note?: string, date?: string) {
 	try {
 		const q = query(
 			collection(db, KHOC_OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
@@ -569,6 +600,7 @@ export async function setKhocOpeningBalance(month: string, balance: number, note
 			return querySnapshot.docs[0].id;
 		} else {
 			const docRef = await addDoc(collection(db, KHOC_OPENING_BALANCES_COLLECTION), {
+				userId,
 				month,
 				balance,
 				note: note || '',
@@ -584,10 +616,11 @@ export async function setKhocOpeningBalance(month: string, balance: number, note
 }
 
 // Get KHOC opening balance for a specific month
-export async function getKhocOpeningBalance(month: string): Promise<OpeningBalance | null> {
+export async function getKhocOpeningBalance(userId: string, month: string): Promise<OpeningBalance | null> {
 	try {
 		const q = query(
 			collection(db, KHOC_OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);
@@ -608,10 +641,11 @@ export async function getKhocOpeningBalance(month: string): Promise<OpeningBalan
 }
 
 // Get all KHOC opening balances
-export async function getAllKhocOpeningBalances(): Promise<OpeningBalance[]> {
+export async function getAllKhocOpeningBalances(userId: string): Promise<OpeningBalance[]> {
 	try {
 		const q = query(
 			collection(db, KHOC_OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			orderBy('month', 'desc')
 		);
 		const querySnapshot = await getDocs(q);
@@ -627,10 +661,11 @@ export async function getAllKhocOpeningBalances(): Promise<OpeningBalance[]> {
 }
 
 // Delete KHOC opening balance for a month
-export async function deleteKhocOpeningBalance(month: string) {
+export async function deleteKhocOpeningBalance(userId: string, month: string) {
 	try {
 		const q = query(
 			collection(db, KHOC_OPENING_BALANCES_COLLECTION),
+			where('userId', '==', userId),
 			where('month', '==', month)
 		);
 		const querySnapshot = await getDocs(q);

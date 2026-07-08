@@ -59,6 +59,7 @@ export const noteStore = {
 
 			// Subscribe to notes
 			notesUnsubscribe = NoteService.subscribeToNotes(
+				currentUser.uid,
 				(fetchedNotes) => {
 					notes.set(fetchedNotes);
 					loading.set(false);
@@ -88,7 +89,7 @@ export const noteStore = {
 		error.set(null);
 
 		try {
-			await NoteService.createNote(data);
+			await NoteService.createNote(currentUser.uid, data);
 
 			// Notes will be updated via the subscription
 			loading.set(false);

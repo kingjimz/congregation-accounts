@@ -7,6 +7,7 @@
 		monthlyImagesStore,
 		type MonthlyImagesSource
 	} from '$lib/stores/monthly-images';
+	import { user } from '$lib/stores/auth';
 	import type { MonthlyImage } from '$lib/firestore';
 
 	interface Props {
@@ -59,6 +60,7 @@
 			formData.set('file', file);
 			formData.set('month', selectedMonth);
 			formData.set('source', source);
+			formData.set('userId', $user?.uid ?? '');
 			const res = await fetch('/api/cloudinary/upload', {
 				method: 'POST',
 				body: formData

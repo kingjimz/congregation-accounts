@@ -1,4 +1,4 @@
-import { writable, type Writable } from 'svelte/store';
+import { writable, type Writable, get } from 'svelte/store';
 import {
 	getAllKhocTransactions,
 	addKhocTransaction,
@@ -7,6 +7,7 @@ import {
 	getUniqueKhocCategories,
 	type Transaction
 } from '$lib/firestore';
+import { user } from '$lib/stores/auth';
 
 // Create reactive stores for KHOC transaction data
 export const khocTransactions: Writable<Transaction[]> = writable([]);
@@ -18,15 +19,18 @@ export const khocError: Writable<string | null> = writable(null);
 export const khocTransactionStore = {
 	// Load all KHOC transactions from Firestore
 	async loadTransactions() {
+		const uid = get(user)?.uid;
+		if (!uid) { khocError.set('Not authenticated'); return; }
+
 		khocLoading.set(true);
 		khocError.set(null);
 
 		try {
-			const data = await getAllKhocTransactions();
+			const data = await getAllKhocTransactions(uid);
 			khocTransactions.set(data);
 
 			// Also update categories
-			const uniqueCategories = await getUniqueKhocCategories();
+			const uniqueCategories = await getUniqueKhocCategories(uid);
 			khocCategories.set(uniqueCategories);
 		} catch (err) {
 			khocError.set(err instanceof Error ? err.message : 'Failed to load KHOC transactions');
@@ -37,23 +41,27 @@ export const khocTransactionStore = {
 	},
 
 	// Add a new KHOC transaction
-	async addTransaction(transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) {
+	async addTransaction(transaction: Omit<Transaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
+		const uid = get(user)?.uid;
+		if (!uid) throw new Error('Not authenticated');
+
 		khocLoading.set(true);
 		khocError.set(null);
 
 		try {
-			const id = await addKhocTransaction(transaction);
+			const id = await addKhocTransaction(uid, transaction);
 
 			// Add to local store with the new ID
 			const newTransaction: Transaction = {
 				...transaction,
+				userId: uid,
 				id
 			};
 
 			khocTransactions.update((current: Transaction[]) => [newTransaction, ...current]);
 
 			// Update categories if this is a new category
-			const currentCategories = await getUniqueKhocCategories();
+			const currentCategories = await getUniqueKhocCategories(uid);
 			khocCategories.set(currentCategories);
 
 			return id;
@@ -67,7 +75,10 @@ export const khocTransactionStore = {
 	},
 
 	// Update an existing KHOC transaction
-	async updateTransaction(id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) {
+	async updateTransaction(id: string, updates: Partial<Omit<Transaction, 'id' | 'userId' | 'createdAt'>>) {
+		const uid = get(user)?.uid;
+		if (!uid) throw new Error('Not authenticated');
+
 		khocLoading.set(true);
 		khocError.set(null);
 
@@ -81,7 +92,7 @@ export const khocTransactionStore = {
 
 			// Update categories if category was changed
 			if (updates.category) {
-				const currentCategories = await getUniqueKhocCategories();
+				const currentCategories = await getUniqueKhocCategories(uid);
 				khocCategories.set(currentCategories);
 			}
 		} catch (err) {
@@ -95,6 +106,9 @@ export const khocTransactionStore = {
 
 	// Delete a KHOC transaction
 	async deleteTransaction(id: string) {
+		const uid = get(user)?.uid;
+		if (!uid) throw new Error('Not authenticated');
+
 		khocLoading.set(true);
 		khocError.set(null);
 
@@ -105,7 +119,7 @@ export const khocTransactionStore = {
 			khocTransactions.update((current: Transaction[]) => current.filter((t: Transaction) => t.id !== id));
 
 			// Update categories in case we removed the last transaction of a category
-			const currentCategories = await getUniqueKhocCategories();
+			const currentCategories = await getUniqueKhocCategories(uid);
 			khocCategories.set(currentCategories);
 		} catch (err) {
 			khocError.set(err instanceof Error ? err.message : 'Failed to delete KHOC transaction');

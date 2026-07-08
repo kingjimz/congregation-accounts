@@ -1,11 +1,12 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { OpeningBalance } from '$lib/firestore';
-import { 
-	setOpeningBalance, 
-	getOpeningBalance, 
-	getAllOpeningBalances, 
-	deleteOpeningBalance 
+import {
+	setOpeningBalance,
+	getOpeningBalance,
+	getAllOpeningBalances,
+	deleteOpeningBalance
 } from '$lib/firestore';
+import { user } from '$lib/stores/auth';
 
 // Store for opening balances data
 export const openingBalances = writable<OpeningBalance[]>([]);
@@ -16,11 +17,14 @@ export const error = writable<string | null>(null);
 export const openingBalanceStore = {
 	// Load all opening balances
 	async loadOpeningBalances() {
+		const uid = get(user)?.uid;
+		if (!uid) { error.set('Not authenticated'); return; }
+
 		loading.set(true);
 		error.set(null);
-		
+
 		try {
-			const balances = await getAllOpeningBalances();
+			const balances = await getAllOpeningBalances(uid);
 			openingBalances.set(balances);
 		} catch (err) {
 			error.set('Failed to load opening balances');
@@ -32,8 +36,11 @@ export const openingBalanceStore = {
 
 	// Get opening balance for a specific month
 	async getMonthOpeningBalance(month: string): Promise<OpeningBalance | null> {
+		const uid = get(user)?.uid;
+		if (!uid) return null;
+
 		try {
-			return await getOpeningBalance(month);
+			return await getOpeningBalance(uid, month);
 		} catch (err) {
 			error.set('Failed to get opening balance');
 			console.error('Error getting opening balance:', err);
@@ -43,11 +50,14 @@ export const openingBalanceStore = {
 
 	// Set opening balance for a month
 	async setMonthOpeningBalance(month: string, balance: number, note?: string, date?: string) {
+		const uid = get(user)?.uid;
+		if (!uid) { error.set('Not authenticated'); return false; }
+
 		loading.set(true);
 		error.set(null);
 
 		try {
-			await setOpeningBalance(month, balance, note, date);
+			await setOpeningBalance(uid, month, balance, note, date);
 			// Reload opening balances to update the store
 			await this.loadOpeningBalances();
 			return true;
@@ -62,11 +72,14 @@ export const openingBalanceStore = {
 
 	// Delete opening balance for a month
 	async deleteMonthOpeningBalance(month: string) {
+		const uid = get(user)?.uid;
+		if (!uid) { error.set('Not authenticated'); return false; }
+
 		loading.set(true);
 		error.set(null);
-		
+
 		try {
-			await deleteOpeningBalance(month);
+			await deleteOpeningBalance(uid, month);
 			// Reload opening balances to update the store
 			await this.loadOpeningBalances();
 			return true;

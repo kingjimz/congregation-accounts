@@ -1,4 +1,4 @@
-import { writable, type Writable } from 'svelte/store';
+import { writable, type Writable, get } from 'svelte/store';
 import {
 	getMonthlyImages,
 	addMonthlyImage,
@@ -8,6 +8,7 @@ import {
 	deleteKhocMonthlyImage,
 	type MonthlyImage
 } from '$lib/firestore';
+import { user } from '$lib/stores/auth';
 
 export type MonthlyImagesSource = 'congregation' | 'khoc';
 
@@ -35,7 +36,8 @@ function setCached(month: string, source: MonthlyImagesSource, data: MonthlyImag
 
 export const monthlyImagesStore = {
 	async loadByMonth(month: string, source: MonthlyImagesSource = 'congregation') {
-		if (!month) {
+		const uid = get(user)?.uid;
+		if (!uid || !month) {
 			monthlyImages.set([]);
 			return;
 		}
@@ -49,8 +51,8 @@ export const monthlyImagesStore = {
 		try {
 			const data =
 				source === 'khoc'
-					? await getKhocMonthlyImages(month)
-					: await getMonthlyImages(month);
+					? await getKhocMonthlyImages(uid, month)
+					: await getMonthlyImages(uid, month);
 			setCached(month, source, data);
 			monthlyImages.set(data);
 		} catch (err) {
@@ -69,13 +71,16 @@ export const monthlyImagesStore = {
 		caption?: string,
 		source: MonthlyImagesSource = 'congregation'
 	) {
+		const uid = get(user)?.uid;
+		if (!uid) throw new Error('Not authenticated');
+
 		monthlyImagesError.set(null);
 		try {
 			const id =
 				source === 'khoc'
-					? await addKhocMonthlyImage({ month, url, publicId, caption })
-					: await addMonthlyImage({ month, url, publicId, caption });
-			const newItem: MonthlyImage = { id, month, url, publicId, caption, uploadedAt: undefined };
+					? await addKhocMonthlyImage(uid, { month, url, publicId, caption })
+					: await addMonthlyImage(uid, { month, url, publicId, caption });
+			const newItem: MonthlyImage = { id, userId: uid, month, url, publicId, caption, uploadedAt: undefined };
 			monthlyImages.update((current) => [newItem, ...current]);
 			const cached = getCached(month, source);
 			if (cached !== null) setCached(month, source, [newItem, ...cached]);

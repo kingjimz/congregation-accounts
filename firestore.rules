@@ -1,70 +1,88 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
+
+    // Check if the user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to validate note data (without userId)
-    function isValidNote() {
-      return request.resource.data.keys().hasAll(['title', 'content', 'createdAt', 'updatedAt']) &&
-             request.resource.data.title is string &&
-             request.resource.data.content is string &&
-             request.resource.data.title.size() > 0 &&
-             request.resource.data.title.size() <= 100 &&
-             request.resource.data.content.size() > 0 &&
-             request.resource.data.content.size() <= 5000;
+    // Check if the requesting user owns the existing document
+    function isOwner() {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // Notes collection rules (simplified without userId)
-    match /notes/{noteId} {
-      // Allow authenticated users to read all notes
-      allow read: if isAuthenticated();
-
-      // Allow authenticated users to create notes
-      allow create: if isAuthenticated() &&
-                       isValidNote();
-
-      // Allow authenticated users to update notes
-      allow update: if isAuthenticated() &&
-                       isValidNote();
-
-      // Allow authenticated users to delete notes
-      allow delete: if isAuthenticated();
+    // Check if the incoming document has the correct userId
+    function isCreatingOwned() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
-    // Allow authenticated users to read and write transactions
-    match /transactions/{document} {
-      allow read, write: if request.auth != null;
+    // Prevent userId from being changed on update
+    function ownerUnchanged() {
+      return request.resource.data.userId == request.auth.uid;
     }
 
-    // Allow authenticated users to read and write opening balances
-    match /opening_balances/{document} {
-      allow read, write: if request.auth != null;
+    // Transactions
+    match /transactions/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned();
+      allow update: if isOwner() && ownerUnchanged();
+      allow delete: if isOwner();
     }
 
-    // Allow authenticated users to read and write KHOC transactions
-    match /khoc_transactions/{document} {
-      allow read, write: if request.auth != null;
+    // Opening Balances
+    match /opening_balances/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned();
+      allow update: if isOwner() && ownerUnchanged();
+      allow delete: if isOwner();
     }
 
-    // Allow authenticated users to read and write KHOC opening balances
-    match /khoc_opening_balances/{document} {
-      allow read, write: if request.auth != null;
+    // KHOC Transactions
+    match /khoc_transactions/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned();
+      allow update: if isOwner() && ownerUnchanged();
+      allow delete: if isOwner();
     }
 
-    // Allow authenticated users to read and write monthly images (Cloudinary refs)
-    match /monthly_images/{document} {
-      allow read, write: if request.auth != null;
+    // KHOC Opening Balances
+    match /khoc_opening_balances/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned();
+      allow update: if isOwner() && ownerUnchanged();
+      allow delete: if isOwner();
     }
 
-    // Allow authenticated users to read and write KHOC monthly images (separate from congregation)
-    match /khoc_monthly_images/{document} {
-      allow read, write: if request.auth != null;
+    // Monthly Images
+    match /monthly_images/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned();
+      allow delete: if isOwner();
     }
 
-    // Deny access to all other documents
+    // KHOC Monthly Images
+    match /khoc_monthly_images/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned();
+      allow delete: if isOwner();
+    }
+
+    // Notes
+    match /notes/{docId} {
+      allow read: if isOwner();
+      allow create: if isCreatingOwned() &&
+                       request.resource.data.title is string &&
+                       request.resource.data.content is string &&
+                       request.resource.data.title.size() > 0 &&
+                       request.resource.data.title.size() <= 100 &&
+                       request.resource.data.content.size() > 0 &&
+                       request.resource.data.content.size() <= 5000;
+      allow update: if isOwner() && ownerUnchanged();
+      allow delete: if isOwner();
+    }
+
+    // Deny everything else
     match /{document=**} {
       allow read, write: if false;
     }
