@@ -39,3 +39,13 @@ export {
   type SortOrder,
   type SortConfig
 } from './sorting';
+
+export {
+  linearRegression,
+  aggregateMonthlyDonations,
+  forecastDonations,
+  getForecastConfidence,
+  type RegressionResult,
+  type ForecastPoint,
+  type MonthlyTotal
+} from './forecast';

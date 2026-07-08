@@ -9,6 +9,7 @@
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import FinancialChart from '$lib/components/dashboard/FinancialChart.svelte';
 	import ChartSummary from '$lib/components/dashboard/ChartSummary.svelte';
+	import DonationForecast from '$lib/components/dashboard/DonationForecast.svelte';
 	import MonthlyImages from '$lib/components/dashboard/MonthlyImages.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
@@ -421,7 +422,7 @@
 						</svg>
 					</div>
 				</div>
-				<p class="kpi-label">Local Congregation</p>
+				<p class="kpi-label">Congregation</p>
 				<p class="kpi-value tabular-nums" style="color: var(--color-income);">+{formatCurrency(summaryTotals().localDonations)}</p>
 			</div>
 
@@ -448,6 +449,9 @@
 
 		<!-- Chart Summary -->
 		<ChartSummary />
+
+		<!-- Donation Forecast -->
+		<DonationForecast transactions={$transactions} />
 
 		<!-- Monthly Images -->
 		<MonthlyImages selectedMonth={selectedMonth} />
