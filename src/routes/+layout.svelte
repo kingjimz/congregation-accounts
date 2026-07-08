@@ -14,7 +14,7 @@
 	let showingAuth = $state(false);
 	let showSetupNotice = $state(false);
 	let setupInstructions = $state('');
-	let sidebarCollapsed = $state(false);
+	let sidebarCollapsed = $state(true);
 	let mobileSidebarOpen = $state(false);
 
 	$effect(() => {
@@ -35,11 +35,6 @@
 			});
 		}
 
-		// Load sidebar state from localStorage
-		const savedCollapsed = localStorage.getItem('sidebar_collapsed');
-		if (savedCollapsed !== null) {
-			sidebarCollapsed = savedCollapsed === 'true';
-		}
 	});
 
 	function handleAuthSuccess() {
@@ -107,7 +102,7 @@
 			icon: 'lock'
 		},
 		{
-			href: '/settings',
+			href: '/help',
 			label: 'Help',
 			icon: 'help'
 		}
@@ -298,7 +293,7 @@
 								Notes
 							{:else if isActive('/khoc')}
 								KHOC
-							{:else if isActive('/settings')}
+							{:else if isActive('/help')}
 								Help & Support
 							{:else}
 								Congregation Accounts
