@@ -323,7 +323,7 @@
 		<div class="space-y-4">
 			<!-- Forecast Cards -->
 			{#if viewMode === 'total' && totalForecast.length > 0}
-				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+				<div class="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 gap-3">
 					{#each totalForecast as point, i}
 						<div class="rounded-lg p-3 border" style="background: var(--color-surface-primary); border-color: var(--color-border-primary);">
 							<span class="text-xs font-medium" style="color: var(--color-text-secondary);">
@@ -341,7 +341,7 @@
 			{/if}
 
 			{#if viewMode === 'category' && (localForecast.length > 0 || worldwideForecast.length > 0)}
-				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+				<div class="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 gap-3">
 					{#each { length: Math.max(localForecast.length, worldwideForecast.length) } as _, i}
 						<div class="rounded-lg p-3 border" style="background: var(--color-surface-primary); border-color: var(--color-border-primary);">
 							<div class="flex items-center justify-between mb-2">

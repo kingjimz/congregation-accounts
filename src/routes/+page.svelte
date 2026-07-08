@@ -320,20 +320,27 @@
 				<h1 class="page-title">Financial Overview</h1>
 				<p class="page-subtitle">Manage congregation accounts and track financial activities</p>
 			</div>
+		</div>
+
+		<!-- Actions Bar -->
+		<div class="actions-bar">
+			<MonthPicker value={selectedMonth} loading={$loading} onchange={handleMonthChange} />
+
 			<div class="header-actions">
 				<Button variant="primary" onclick={() => showTransactionForm = true}>
-					<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
 					</svg>
-					Add Transaction
+					<span class="btn-label">Add Transaction</span>
 				</Button>
+
 				{#if selectedMonth && selectedMonth !== ''}
 					<div class="relative">
 						<Button variant="secondary" onclick={() => showReportMenu = !showReportMenu} disabled={isGeneratingReport}>
-							<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+							<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
 							</svg>
-							{isGeneratingReport ? 'Generating...' : 'Export Report'}
+							<span class="btn-label">{isGeneratingReport ? 'Generating...' : 'Export'}</span>
 						</Button>
 						{#if showReportMenu}
 							<div class="report-dropdown">
@@ -350,9 +357,6 @@
 				{/if}
 			</div>
 		</div>
-
-		<!-- Month Picker -->
-		<MonthPicker value={selectedMonth} loading={$loading} onchange={handleMonthChange} showAll={true} />
 
 		<!-- KPI Cards -->
 		<div class="kpi-grid">
@@ -442,7 +446,7 @@
 
 		<!-- Chart -->
 		<Card title="Financial Overview" padding="sm">
-			<div class="h-80">
+			<div class="h-[36rem] md:h-80">
 				<FinancialChart transactions={monthlyData().transactions} month={selectedMonth || 'All'} />
 			</div>
 		</Card>
@@ -614,6 +618,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+		overflow-x: hidden;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	/* Page Header */
@@ -644,10 +651,27 @@
 		margin: 0.25rem 0 0 0;
 	}
 
+	.actions-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
 	.header-actions {
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
+	}
+
+	.btn-label {
+		display: none;
+	}
+
+	@media (min-width: 640px) {
+		.btn-label {
+			display: inline;
+		}
 	}
 
 	.report-dropdown {
@@ -655,6 +679,7 @@
 		right: 0;
 		margin-top: 0.5rem;
 		width: 16rem;
+		max-width: calc(100vw - 2rem);
 		padding: 1rem;
 		border-radius: 0.5rem;
 		z-index: 10;
@@ -688,6 +713,8 @@
 		border-radius: 0.5rem;
 		padding: 1rem;
 		position: relative;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.kpi-card-highlight {
@@ -766,6 +793,7 @@
 		color: var(--color-text-primary);
 		margin: 0;
 		line-height: 1.2;
+		word-break: break-word;
 	}
 
 	/* Filter Bar */
@@ -889,13 +917,23 @@
 			grid-template-columns: repeat(2, 1fr);
 		}
 
+		.kpi-card {
+			padding: 0.625rem;
+		}
+
 		.kpi-value {
-			font-size: 0.9375rem;
+			font-size: 0.875rem;
 		}
 
 		.dashboard {
 			padding: 1rem;
 			gap: 1rem;
+		}
+	}
+
+	@media (max-width: 380px) {
+		.kpi-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

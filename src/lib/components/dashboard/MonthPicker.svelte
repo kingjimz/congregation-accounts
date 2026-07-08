@@ -12,12 +12,24 @@
 
 	const dispatch = createEventDispatcher<{ change: { month: string } }>();
 
-	let isShowingAll = $state(value === '');
+	let monthInput: HTMLInputElement;
+
+	const currentMonth = new Date().toISOString().slice(0, 7);
+	let isCurrentMonth = $derived((value || currentMonth) >= currentMonth);
+
+	function formatMonthLabel(val: string): string {
+		if (!val) {
+			const now = new Date();
+			return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+		}
+		const [year, month] = val.split('-').map(Number);
+		const date = new Date(year, month - 1);
+		return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+	}
 
 	function handleChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		value = target.value;
-		isShowingAll = false;
 		onchange?.(target.value);
 		dispatch('change', { month: target.value });
 	}
@@ -29,7 +41,7 @@
 		let prevYear = year;
 		if (prevMonth === 0) { prevMonth = 12; prevYear = year - 1; }
 		const newValue = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-		value = newValue; isShowingAll = false;
+		value = newValue;
 		onchange?.(newValue); dispatch('change', { month: newValue });
 	}
 
@@ -40,107 +52,79 @@
 		let nextYear = year;
 		if (nextMonth === 13) { nextMonth = 1; nextYear = year + 1; }
 		const newValue = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-		value = newValue; isShowingAll = false;
+		value = newValue;
 		onchange?.(newValue); dispatch('change', { month: newValue });
-	}
-
-	function showAllTransactions() {
-		value = ''; isShowingAll = true;
-		onchange?.(''); dispatch('change', { month: '' });
 	}
 </script>
 
 <div class="month-picker">
-	<div class="picker-group">
-		<label for="month-picker" class="picker-label">Period:</label>
-		<input id="month-picker" type="month" {value} onchange={handleChange} disabled={loading || isShowingAll}
-			class="picker-input" placeholder={isShowingAll ? 'All transactions' : ''} />
-	</div>
-	<div class="picker-nav">
-		<button onclick={showPreviousMonth} disabled={loading} class="nav-btn" title="Previous Month">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-			</svg>
-			<span class="nav-text">Prev</span>
-		</button>
-		<button onclick={showNextMonth} disabled={loading} class="nav-btn" title="Next Month">
-			<span class="nav-text">Next</span>
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-			</svg>
-		</button>
-		{#if showAll}
-			<button onclick={showAllTransactions} disabled={loading} class="nav-btn {isShowingAll ? 'nav-btn-active' : ''}">
-				All
-			</button>
-		{/if}
-	</div>
+	<button onclick={showPreviousMonth} disabled={loading} class="nav-btn" title="Previous Month">
+		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+		</svg>
+	</button>
+
+	<button class="month-label" onclick={() => monthInput?.showPicker?.()} disabled={loading}>
+		{formatMonthLabel(value)}
+	</button>
+	<input bind:this={monthInput} type="month" {value} max={currentMonth} onchange={handleChange} class="month-input-hidden" tabindex="-1" />
+
+	<button onclick={showNextMonth} disabled={loading || isCurrentMonth} class="nav-btn" title="Next Month">
+		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+		</svg>
+	</button>
 </div>
 
 <style>
 	.month-picker {
 		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	@media (min-width: 640px) {
-		.month-picker {
-			flex-direction: row;
-			align-items: center;
-		}
-	}
-
-	.picker-group {
-		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 0.5rem;
 	}
 
-	.picker-label {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-secondary);
-		white-space: nowrap;
-	}
-
-	.picker-input {
-		padding: 0.375rem 0.625rem;
-		border-radius: 0.375rem;
-		border: 1px solid var(--color-border-primary);
-		background: var(--color-bg-primary);
+	.month-label {
+		font-size: 1rem;
+		font-weight: 600;
 		color: var(--color-text-primary);
-		font-size: 0.8125rem;
-		transition: border-color 0.15s;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.375rem;
+		transition: background 0.15s;
+		white-space: nowrap;
+		min-width: 10rem;
+		text-align: center;
 	}
 
-	.picker-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-		box-shadow: 0 0 0 2px var(--color-accent-alpha);
+	.month-label:hover:not(:disabled) {
+		background: var(--color-surface-hover);
 	}
 
-	.picker-input:disabled {
+	.month-label:disabled {
 		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
-	.picker-nav {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
+	.month-input-hidden {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+		width: 0;
+		height: 0;
 	}
 
 	.nav-btn {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
-		padding: 0.375rem 0.625rem;
+		justify-content: center;
+		padding: 0.375rem;
 		border-radius: 0.375rem;
 		border: 1px solid var(--color-border-primary);
 		background: var(--color-bg-primary);
 		color: var(--color-text-primary);
-		font-size: 0.75rem;
-		font-weight: 500;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
@@ -152,21 +136,5 @@
 	.nav-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
-	}
-
-	.nav-btn-active {
-		background: var(--color-accent) !important;
-		color: #ffffff !important;
-		border-color: var(--color-accent) !important;
-	}
-
-	.nav-text {
-		display: none;
-	}
-
-	@media (min-width: 640px) {
-		.nav-text {
-			display: inline;
-		}
 	}
 </style>

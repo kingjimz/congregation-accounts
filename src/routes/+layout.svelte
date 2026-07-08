@@ -87,6 +87,7 @@
 	function toggleTheme() {
 		const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 		theme.setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+		location.reload();
 	}
 
 	const navItems = [
@@ -431,6 +432,8 @@
 		display: flex;
 		min-height: 100vh;
 		background: var(--color-bg-secondary);
+		overflow-x: hidden;
+		max-width: 100vw;
 	}
 
 	/* Sidebar */
@@ -608,6 +611,8 @@
 		flex-direction: column;
 		min-height: 100vh;
 		transition: margin-left 0.2s ease;
+		overflow-x: hidden;
+		min-width: 0;
 	}
 
 	.main-expanded {
@@ -827,7 +832,8 @@
 			display: flex;
 		}
 
-		.user-info {
+		.user-info,
+		.user-avatar {
 			display: none;
 		}
 

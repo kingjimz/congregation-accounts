@@ -252,19 +252,22 @@
 					<h1 class="page-title">KHOC Financial Overview</h1>
 					<p class="page-subtitle">Kingdom Hall Operating Committee</p>
 				</div>
+			</div>
+
+			<div class="actions-bar">
+				<MonthPicker value={selectedMonth} loading={$khocLoading} onchange={handleMonthChange} />
+
 				<div class="header-actions">
 					<Button variant="primary" onclick={() => showTransactionForm = true}>
-						<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-						Add Transaction
+						<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+						<span class="btn-label">Add Transaction</span>
 					</Button>
 					<Button variant="danger" onclick={handleLogout}>
-						<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
-						Logout
+						<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+						<span class="btn-label">Logout</span>
 					</Button>
 				</div>
 			</div>
-
-			<MonthPicker value={selectedMonth} loading={$khocLoading} onchange={handleMonthChange} showAll={true} />
 
 			<!-- KPI Cards -->
 			<div class="kpi-grid">
@@ -429,6 +432,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+		overflow-x: hidden;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.page-header {
@@ -443,14 +449,17 @@
 
 	.page-title { font-size: 1.375rem; font-weight: 700; color: var(--color-text-primary); margin: 0; }
 	.page-subtitle { font-size: 0.8125rem; color: var(--color-text-secondary); margin: 0.25rem 0 0 0; }
+	.actions-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 	.header-actions { display: flex; gap: 0.5rem; align-items: center; }
+	.btn-label { display: none; }
+	@media (min-width: 640px) { .btn-label { display: inline; } }
 
 	/* KPI Grid */
 	.kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
 	@media (min-width: 768px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
 	@media (min-width: 1024px) { .kpi-grid { grid-template-columns: repeat(6, 1fr); } }
 
-	.kpi-card { background: var(--color-surface-elevated); border: 1px solid var(--color-border-primary); border-radius: 0.5rem; padding: 1rem; }
+	.kpi-card { background: var(--color-surface-elevated); border: 1px solid var(--color-border-primary); border-radius: 0.5rem; padding: 1rem; min-width: 0; overflow: hidden; }
 	.kpi-card-highlight { background: var(--color-accent); border-color: var(--color-accent); }
 	.kpi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 	.kpi-icon { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
@@ -462,7 +471,7 @@
 	.kpi-action { padding: 0.25rem; border-radius: 4px; border: none; background: transparent; color: var(--color-text-tertiary); cursor: pointer; transition: all 0.15s; }
 	.kpi-action:hover { background: var(--color-accent-light); color: var(--color-accent); }
 	.kpi-label { font-size: 0.6875rem; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 0.25rem 0; text-transform: uppercase; letter-spacing: 0.03em; }
-	.kpi-value { font-size: 1.125rem; font-weight: 700; color: var(--color-text-primary); margin: 0; line-height: 1.2; }
+	.kpi-value { font-size: 1.125rem; font-weight: 700; color: var(--color-text-primary); margin: 0; line-height: 1.2; word-break: break-word; }
 
 	/* Filter Bar */
 	.filter-bar { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; padding: 0.25rem; background: var(--color-bg-tertiary); border-radius: 0.5rem; width: fit-content; }
@@ -485,7 +494,12 @@
 
 	@media (max-width: 640px) {
 		.kpi-grid { grid-template-columns: repeat(2, 1fr); }
-		.kpi-value { font-size: 0.9375rem; }
+		.kpi-card { padding: 0.625rem; }
+		.kpi-value { font-size: 0.875rem; }
 		.dashboard { padding: 1rem; gap: 1rem; }
+	}
+
+	@media (max-width: 380px) {
+		.kpi-grid { grid-template-columns: 1fr; }
 	}
 </style>

@@ -441,7 +441,7 @@
 
 <div class="w-full h-full space-y-2">
 	<!-- Chart Type Switcher -->
-	<div class="flex justify-end gap-2 pb-1">
+	<div class="flex justify-end gap-2 pb-1 relative z-10">
 		<button
 			onclick={() => setChartType('line')}
 			class="filter-tab {chartType === 'line' ? 'filter-tab-active' : ''}"
@@ -465,12 +465,12 @@
 	<!-- Split Charts -->
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full" style="height: calc(100% - 3rem);">
 		<!-- Income Chart -->
-		<div class="w-full h-full">
+		<div class="w-full h-full overflow-hidden">
 			<canvas bind:this={incomeCanvasRef}></canvas>
 		</div>
 
 		<!-- Expense Chart -->
-		<div class="w-full h-full">
+		<div class="w-full h-full overflow-hidden">
 			<canvas bind:this={expenseCanvasRef}></canvas>
 		</div>
 	</div>
