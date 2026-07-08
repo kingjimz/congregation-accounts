@@ -17,7 +17,7 @@
 		onchange?: (value: string) => void;
 	}
 
-	let { 
+	let {
 		value = '',
 		options = [],
 		placeholder = 'Select an option...',
@@ -29,12 +29,6 @@
 		onchange
 	}: Props = $props();
 
-	const baseClasses = 'block w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm';
-	const errorClasses = 'border-red-300 focus:border-red-500 focus:ring-red-500';
-	const normalClasses = 'focus:border-indigo-500 focus:ring-indigo-500';
-	
-	const selectClasses = $derived(`${baseClasses} ${error ? errorClasses : normalClasses}`);
-
 	function handleChange(event: Event) {
 		const target = event.target as HTMLSelectElement;
 		value = target.value;
@@ -43,10 +37,10 @@
 </script>
 
 {#if label}
-	<label for={id} class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
+	<label for={id} class="select-label">
 		{label}
 		{#if required}
-			<span style="color: var(--color-error);">*</span>
+			<span class="select-required">*</span>
 		{/if}
 	</label>
 {/if}
@@ -56,8 +50,7 @@
 	{required}
 	{disabled}
 	bind:value
-	class={selectClasses}
-	style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
+	class="select-field {error ? 'select-error' : ''}"
 	onchange={handleChange}
 >
 	{#if placeholder}
@@ -71,5 +64,54 @@
 </select>
 
 {#if error}
-	<p class="mt-1 text-sm" style="color: var(--color-error);">{error}</p>
+	<p class="select-error-text">{error}</p>
 {/if}
+
+<style>
+	.select-label {
+		display: block;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		margin-bottom: 0.375rem;
+	}
+
+	.select-required {
+		color: var(--color-error);
+	}
+
+	.select-field {
+		display: block;
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		color: var(--color-text-primary);
+		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border-primary);
+		border-radius: 0.375rem;
+		transition: border-color 0.15s, box-shadow 0.15s;
+		cursor: pointer;
+	}
+
+	.select-field:focus {
+		outline: none;
+		border-color: var(--color-accent);
+		box-shadow: 0 0 0 2px var(--color-accent-alpha);
+	}
+
+	.select-field:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.select-error {
+		border-color: var(--color-error);
+	}
+
+	.select-error-text {
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: var(--color-error);
+	}
+</style>

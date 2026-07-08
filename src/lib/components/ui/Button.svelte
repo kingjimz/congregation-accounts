@@ -12,40 +12,47 @@
 		children?: any;
 	}
 
-	let { 
-		variant = 'primary', 
-		size = 'md', 
-		disabled = false, 
-		loading = false, 
+	let {
+		variant = 'primary',
+		size = 'md',
+		disabled = false,
+		loading = false,
 		type = 'button',
 		onclick,
 		class: className = '',
 		children
 	}: Props = $props();
 
-	const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+	const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
 
 	const variantClasses: Record<ButtonVariant, string> = {
-		primary: 'bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500 shadow-sm hover:shadow-md',
-		secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-900 focus:ring-gray-500 shadow-sm hover:shadow-md',
-		danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-sm hover:shadow-md',
-		ghost: 'bg-transparent hover:bg-gray-100 text-gray-700 focus:ring-gray-500'
+		primary: 'text-white shadow-sm',
+		secondary: 'shadow-sm',
+		danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-sm',
+		ghost: 'bg-transparent focus:ring-gray-400'
 	};
 
 	const sizeClasses: Record<ButtonSize, string> = {
-		sm: 'px-3 py-1.5 text-sm',
+		sm: 'px-3 py-1.5 text-xs',
 		md: 'px-4 py-2 text-sm',
-		lg: 'px-6 py-3 text-base'
+		lg: 'px-5 py-2.5 text-sm'
 	};
 
 	const classes = $derived(`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`);
 </script>
 
-<button 
+<button
 	{type}
 	class={classes}
 	disabled={disabled || loading}
 	onclick={onclick}
+	style={variant === 'primary'
+		? 'background: var(--color-accent); color: #fff;'
+		: variant === 'secondary'
+			? 'background: var(--color-bg-primary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);'
+			: variant === 'ghost'
+				? 'color: var(--color-text-secondary);'
+				: ''}
 >
 	{#if loading}
 		<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -57,3 +64,13 @@
 		{@render children?.()}
 	{/if}
 </button>
+
+<style>
+	button:hover:not(:disabled) {
+		filter: brightness(0.92);
+	}
+	button[style*="--color-bg-primary"]:hover:not(:disabled) {
+		filter: none;
+		background: var(--color-surface-hover) !important;
+	}
+</style>

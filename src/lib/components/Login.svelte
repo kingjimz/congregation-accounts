@@ -9,16 +9,12 @@
 	let isLoading = false;
 
 	async function handleSubmit() {
-		if (!email || !password) {
-			return;
-		}
-
+		if (!email || !password) return;
 		try {
 			isLoading = true;
 			await signIn(email, password);
 			dispatch('success');
 		} catch (err) {
-			// Error is handled by the auth store
 			console.error('Login failed:', err);
 		} finally {
 			isLoading = false;
@@ -32,40 +28,37 @@
 
 <div class="auth-container">
 	<div class="auth-card">
+		<div class="auth-brand">
+			<div class="brand-icon">
+				<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+				</svg>
+			</div>
+		</div>
+
 		<div class="auth-header">
-			<h2>Welcome Back</h2>
+			<h2>Welcome back</h2>
 			<p>Sign in to access your congregation accounts</p>
 		</div>
 
 		<form on:submit|preventDefault={handleSubmit} class="auth-form">
 			{#if $error}
 				<div class="error-message">
-					{$error}
+					<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+					</svg>
+					<span>{$error}</span>
 				</div>
 			{/if}
 
 			<div class="form-group">
 				<label for="email">Email Address</label>
-				<input
-					id="email"
-					type="email"
-					bind:value={email}
-					placeholder="Enter your email"
-					required
-					disabled={isLoading}
-				/>
+				<input id="email" type="email" bind:value={email} placeholder="Enter your email" required disabled={isLoading} />
 			</div>
 
 			<div class="form-group">
 				<label for="password">Password</label>
-				<input
-					id="password"
-					type="password"
-					bind:value={password}
-					placeholder="Enter your password"
-					required
-					disabled={isLoading}
-				/>
+				<input id="password" type="password" bind:value={password} placeholder="Enter your password" required disabled={isLoading} />
 			</div>
 
 			<button type="submit" class="auth-btn" disabled={isLoading || !email || !password}>
@@ -77,59 +70,80 @@
 				{/if}
 			</button>
 		</form>
-
 	</div>
+
+	<p class="auth-footer-text">Congregation Accounts</p>
 </div>
 
 <style>
 	.auth-container {
 		min-height: 100vh;
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: #0f172a;
 		padding: 1rem;
 	}
 
 	.auth-card {
-		background: white;
-		border-radius: 16px;
-		padding: 2.5rem;
-		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+		background: #ffffff;
+		border-radius: 0.75rem;
+		padding: 2rem;
+		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 		width: 100%;
-		max-width: 400px;
+		max-width: 380px;
+	}
+
+	.auth-brand {
+		display: flex;
+		justify-content: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.brand-icon {
+		width: 48px;
+		height: 48px;
+		background: #1e40af;
+		border-radius: 12px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.auth-header {
 		text-align: center;
-		margin-bottom: 2rem;
+		margin-bottom: 1.5rem;
 	}
 
 	.auth-header h2 {
-		margin: 0 0 0.5rem 0;
-		color: #1e293b;
-		font-size: 1.75rem;
+		margin: 0 0 0.375rem 0;
+		color: #0f172a;
+		font-size: 1.25rem;
 		font-weight: 700;
 	}
 
 	.auth-header p {
 		margin: 0;
 		color: #64748b;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 	}
 
 	.auth-form {
 		display: flex;
 		flex-direction: column;
-		gap: 1.5rem;
+		gap: 1.25rem;
 	}
 
 	.error-message {
-		background: #fee2e2;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: #fef2f2;
 		color: #dc2626;
-		padding: 0.75rem;
-		border-radius: 8px;
-		font-size: 0.875rem;
+		padding: 0.625rem 0.75rem;
+		border-radius: 0.375rem;
+		font-size: 0.8125rem;
 		border: 1px solid #fecaca;
 	}
 
@@ -139,25 +153,26 @@
 	}
 
 	.form-group label {
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.375rem;
 		color: #374151;
 		font-weight: 500;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 	}
 
 	.form-group input {
-		padding: 0.875rem 1rem;
-		border: 1px solid #d1d5db;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: border-color 0.2s, box-shadow 0.2s;
-		background: white;
+		padding: 0.625rem 0.75rem;
+		border: 1px solid #e2e8f0;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		transition: border-color 0.15s, box-shadow 0.15s;
+		background: #ffffff;
+		color: #0f172a;
 	}
 
 	.form-group input:focus {
 		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+		border-color: #1e40af;
+		box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1);
 	}
 
 	.form-group input:disabled {
@@ -166,15 +181,15 @@
 	}
 
 	.auth-btn {
-		background: #2563eb;
+		background: #1e40af;
 		color: white;
-		padding: 0.875rem 1rem;
+		padding: 0.625rem 1rem;
 		border: none;
-		border-radius: 8px;
-		font-size: 1rem;
-		font-weight: 500;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		font-weight: 600;
 		cursor: pointer;
-		transition: background-color 0.2s, transform 0.2s;
+		transition: background-color 0.15s;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -182,27 +197,32 @@
 	}
 
 	.auth-btn:hover:not(:disabled) {
-		background: #1d4ed8;
-		transform: translateY(-1px);
+		background: #1e3a8a;
 	}
 
 	.auth-btn:disabled {
-		background: #9ca3af;
+		background: #94a3b8;
 		cursor: not-allowed;
-		transform: none;
 	}
 
 	.loading-spinner {
-		width: 16px;
-		height: 16px;
+		width: 14px;
+		height: 14px;
 		border: 2px solid transparent;
 		border-top: 2px solid currentColor;
 		border-radius: 50%;
-		animation: spin 1s linear infinite;
+		animation: spin 0.8s linear infinite;
+	}
+
+	.auth-footer-text {
+		margin-top: 1.5rem;
+		color: #475569;
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
 	}
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
 	}
-
 </style>

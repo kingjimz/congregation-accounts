@@ -22,7 +22,7 @@
 	let showEditTransactionForm = $state(false);
 	let showDeleteConfirmation = $state(false);
 	let submitting = $state(false);
-	let selectedMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+	let selectedMonth = $state(new Date().toISOString().slice(0, 7));
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
 	let showReportMenu = $state(false);
@@ -51,26 +51,19 @@
 	let openingBalanceNote = $state('');
 	let openingBalanceDate = $state(new Date().toISOString().slice(0, 10));
 
-	// Load data on mount
 	onMount(async () => {
-		console.log('Dashboard loaded for authenticated user');
-		
-		// Load sort preference
 		const preference = getSortPreference();
 		sortField = preference.field;
 		sortOrder = preference.order;
-		
+
 		await Promise.all([
 			transactionStore.loadTransactions(),
 			openingBalanceStore.loadOpeningBalances()
 		]);
 	});
 
-
-	// Get monthly data for selected month
 	const monthlyData = $derived(() => {
 		if (selectedMonth === '') {
-			// Show all transactions
 			return {
 				transactions: [...$transactions].sort((a, b) => b.date.localeCompare(a.date)),
 				openingBalance: 0
@@ -79,25 +72,18 @@
 		return TransactionService.getMonthlyData(selectedMonth, $transactions, $openingBalances);
 	});
 
-	// Get all transactions for display with filter applied
 	const filteredTransactions = $derived(() => {
 		const transactions = monthlyData().transactions;
-		if (transactionFilter === 'all') {
-			return transactions;
-		}
+		if (transactionFilter === 'all') return transactions;
 		return transactions.filter(t => t.type === transactionFilter);
 	});
 
-	// Apply sorting to all filtered transactions
 	const sortedTransactions = $derived(() => {
 		return sortTransactions(filteredTransactions(), sortField, sortOrder);
 	});
 
-	// Alias for backward compatibility
 	const allTransactions = $derived(() => sortedTransactions());
 
-
-	// Helper functions for category classification
 	function isLocalCategory(category: string): boolean {
 		return category.toLowerCase().includes('local congregation');
 	}
@@ -106,12 +92,11 @@
 		return category.toLowerCase().includes('worldwide work');
 	}
 
-	// Calculate summary totals
 	const summaryTotals = $derived(() => {
 		const transactions = monthlyData().transactions;
 		const openingBalanceValue = monthlyData().openingBalance;
-		const openingBalance = typeof openingBalanceValue === 'object' && openingBalanceValue !== null 
-			? Number(openingBalanceValue.balance || 0) 
+		const openingBalance = typeof openingBalanceValue === 'object' && openingBalanceValue !== null
+			? Number(openingBalanceValue.balance || 0)
 			: 0;
 		const totalDonations = transactions
 			.filter(t => t.type === 'income')
@@ -121,179 +106,95 @@
 			.reduce((sum, t) => sum + t.amount, 0);
 		const endBalance = openingBalance + totalDonations - totalExpenses;
 
-		// Worldwide Work donations
 		const worldwideDonations = transactions
 			.filter(t => t.type === 'income' && isWorldwideCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
-		// Local Congregation donations
 		const localDonations = transactions
 			.filter(t => t.type === 'income' && isLocalCategory(t.category))
 			.reduce((sum, t) => sum + t.amount, 0);
 
-		return {
-			openingBalance,
-			totalDonations,
-			totalExpenses,
-			endBalance,
-			worldwideDonations,
-			localDonations
-		};
+		return { openingBalance, totalDonations, totalExpenses, endBalance, worldwideDonations, localDonations };
 	});
 
-	// Calculate pagination values
 	$effect(() => {
 		totalPages = Math.ceil(allTransactions().length / itemsPerPage) || 1;
-		// Reset to first page when month changes or if current page exceeds total pages
-		if (currentPage > totalPages) {
-			currentPage = 1;
-		}
+		if (currentPage > totalPages) currentPage = 1;
 	});
 
-	// Get paginated transactions
 	const paginatedTransactions = $derived(() => {
 		const startIndex = (currentPage - 1) * itemsPerPage;
-		const endIndex = startIndex + itemsPerPage;
-		return allTransactions().slice(startIndex, endIndex);
+		return allTransactions().slice(startIndex, startIndex + itemsPerPage);
 	});
 
-	// Pagination helpers
-	function nextPage() {
-		if (currentPage < totalPages) {
-			currentPage++;
-		}
-	}
+	function nextPage() { if (currentPage < totalPages) currentPage++; }
+	function previousPage() { if (currentPage > 1) currentPage--; }
+	function goToPage(page: number) { if (page >= 1 && page <= totalPages) currentPage = page; }
 
-	function previousPage() {
-		if (currentPage > 1) {
-			currentPage--;
-		}
-	}
-
-	function goToPage(page: number) {
-		if (page >= 1 && page <= totalPages) {
-			currentPage = page;
-		}
-	}
-
-	// Get page numbers to display
 	const pageNumbers = $derived(() => {
 		const pages: number[] = [];
-		const maxVisible = 5; // Maximum number of page buttons to show
-
+		const maxVisible = 5;
 		if (totalPages <= maxVisible) {
-			// Show all pages if total is less than max
-			for (let i = 1; i <= totalPages; i++) {
-				pages.push(i);
-			}
+			for (let i = 1; i <= totalPages; i++) pages.push(i);
 		} else {
-			// Show limited pages with ellipsis
 			if (currentPage <= 3) {
-				// Near the beginning
-				for (let i = 1; i <= 4; i++) {
-					pages.push(i);
-				}
-				pages.push(-1); // Ellipsis marker
-				pages.push(totalPages);
+				for (let i = 1; i <= 4; i++) pages.push(i);
+				pages.push(-1); pages.push(totalPages);
 			} else if (currentPage >= totalPages - 2) {
-				// Near the end
-				pages.push(1);
-				pages.push(-1); // Ellipsis marker
-				for (let i = totalPages - 3; i <= totalPages; i++) {
-					pages.push(i);
-				}
+				pages.push(1); pages.push(-1);
+				for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
 			} else {
-				// In the middle
-				pages.push(1);
-				pages.push(-1); // Ellipsis marker
-				for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-					pages.push(i);
-				}
-				pages.push(-1); // Ellipsis marker
-				pages.push(totalPages);
+				pages.push(1); pages.push(-1);
+				for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+				pages.push(-1); pages.push(totalPages);
 			}
 		}
-
 		return pages;
 	});
 
-	// Reset page when month changes
-	$effect(() => {
-		selectedMonth; // Track month changes
-		currentPage = 1;
-	});
+	$effect(() => { selectedMonth; currentPage = 1; });
 
-	// Event handlers
 	async function handleTransactionSubmit(data: TransactionFormData) {
 		submitting = true;
 		try {
-			// Ensure date is set before submitting
-			const transactionData = {
-				...data,
-				date: data.date || new Date().toISOString().split('T')[0]
-			};
+			const transactionData = { ...data, date: data.date || new Date().toISOString().split('T')[0] };
 			await transactionStore.addTransaction(transactionData);
 			showTransactionForm = false;
-
-			// Automatically switch to the month of the new transaction
 			const transactionMonth = transactionData.date.substring(0, 7);
-			if (transactionMonth !== selectedMonth) {
-				selectedMonth = transactionMonth;
-			}
-
-			// Reset pagination to first page to show the new transaction
+			if (transactionMonth !== selectedMonth) selectedMonth = transactionMonth;
 			currentPage = 1;
-		} catch (err) {
-			console.error('Failed to add transaction:', err);
-		} finally {
-			submitting = false;
-		}
+		} catch (err) { console.error('Failed to add transaction:', err); }
+		finally { submitting = false; }
 	}
 
 	async function handleCombinedDonationSubmit(items: TransactionFormData[]) {
 		submitting = true;
 		try {
 			for (const item of items) {
-				const transactionData = {
-					...item,
-					date: item.date || new Date().toISOString().split('T')[0]
-				};
+				const transactionData = { ...item, date: item.date || new Date().toISOString().split('T')[0] };
 				await transactionStore.addTransaction(transactionData);
 				const transactionMonth = transactionData.date.substring(0, 7);
-				if (transactionMonth !== selectedMonth) {
-					selectedMonth = transactionMonth;
-				}
+				if (transactionMonth !== selectedMonth) selectedMonth = transactionMonth;
 			}
 			showTransactionForm = false;
 			currentPage = 1;
-		} catch (err) {
-			console.error('Failed to add donations:', err);
-		} finally {
-			submitting = false;
-		}
+		} catch (err) { console.error('Failed to add donations:', err); }
+		finally { submitting = false; }
 	}
 
 	async function handleCombinedExpenseSubmit(items: TransactionFormData[]) {
 		submitting = true;
 		try {
 			for (const item of items) {
-				const transactionData = {
-					...item,
-					date: item.date || new Date().toISOString().split('T')[0]
-				};
+				const transactionData = { ...item, date: item.date || new Date().toISOString().split('T')[0] };
 				await transactionStore.addTransaction(transactionData);
 				const transactionMonth = transactionData.date.substring(0, 7);
-				if (transactionMonth !== selectedMonth) {
-					selectedMonth = transactionMonth;
-				}
+				if (transactionMonth !== selectedMonth) selectedMonth = transactionMonth;
 			}
 			showTransactionForm = false;
 			currentPage = 1;
-		} catch (err) {
-			console.error('Failed to add expenses:', err);
-		} finally {
-			submitting = false;
-		}
+		} catch (err) { console.error('Failed to add expenses:', err); }
+		finally { submitting = false; }
 	}
 
 	function handleDeleteTransaction(event: { id: string }) {
@@ -303,30 +204,21 @@
 
 	async function confirmDelete() {
 		if (!deletingTransactionId) return;
-
 		submitting = true;
 		try {
 			await transactionStore.deleteTransaction(deletingTransactionId);
-			// Reset to first page if current page becomes empty
 			const newTotal = allTransactions.length - 1;
 			const newTotalPages = Math.ceil(newTotal / itemsPerPage) || 1;
-			if (currentPage > newTotalPages) {
-				currentPage = newTotalPages;
-			}
+			if (currentPage > newTotalPages) currentPage = newTotalPages;
 			showDeleteConfirmation = false;
 			deletingTransactionId = null;
 		} catch (err) {
 			console.error('Failed to delete transaction:', err);
 			alert('Failed to delete transaction. Please try again.');
-		} finally {
-			submitting = false;
-		}
+		} finally { submitting = false; }
 	}
 
-	function cancelDelete() {
-		showDeleteConfirmation = false;
-		deletingTransactionId = null;
-	}
+	function cancelDelete() { showDeleteConfirmation = false; deletingTransactionId = null; }
 
 	function handleEditTransaction(event: { transaction: Transaction }) {
 		editingTransaction = event.transaction;
@@ -335,69 +227,36 @@
 
 	async function handleUpdateTransaction(data: TransactionFormData) {
 		if (!editingTransaction?.id) return;
-
 		submitting = true;
 		try {
-			const transactionData = {
-				...data,
-				date: data.date || new Date().toISOString().split('T')[0]
-			};
+			const transactionData = { ...data, date: data.date || new Date().toISOString().split('T')[0] };
 			await transactionStore.updateTransaction(editingTransaction.id, transactionData);
 			showEditTransactionForm = false;
 			editingTransaction = null;
-
-			// Automatically switch to the month of the updated transaction if date changed
 			const transactionMonth = transactionData.date.substring(0, 7);
-			if (transactionMonth !== selectedMonth) {
-				selectedMonth = transactionMonth;
-				currentPage = 1;
-			}
+			if (transactionMonth !== selectedMonth) { selectedMonth = transactionMonth; currentPage = 1; }
 		} catch (err) {
 			console.error('Failed to update transaction:', err);
 			alert('Failed to update transaction. Please try again.');
-		} finally {
-			submitting = false;
-		}
+		} finally { submitting = false; }
 	}
 
-	function handleMonthChange(month: string) {
-		selectedMonth = month;
-	}
+	function handleMonthChange(month: string) { selectedMonth = month; }
 
 	async function handleSetOpeningBalance() {
-		if (newOpeningBalance < 0) {
-			alert('Starting balance cannot be negative');
-			return;
-		}
-
+		if (newOpeningBalance < 0) { alert('Starting balance cannot be negative'); return; }
 		try {
-			await openingBalanceStore.setMonthOpeningBalance(
-				selectedMonth,
-				newOpeningBalance,
-				openingBalanceNote || undefined,
-				openingBalanceDate || undefined
-			);
-
-			// Reset form
-			newOpeningBalance = 0;
-			openingBalanceNote = '';
-			openingBalanceDate = new Date().toISOString().slice(0, 10);
+			await openingBalanceStore.setMonthOpeningBalance(selectedMonth, newOpeningBalance, openingBalanceNote || undefined, openingBalanceDate || undefined);
+			newOpeningBalance = 0; openingBalanceNote = ''; openingBalanceDate = new Date().toISOString().slice(0, 10);
 			showOpeningBalanceForm = false;
-		} catch (err) {
-			console.error('Failed to set starting balance:', err);
-			alert('Failed to set starting balance. Please try again.');
-		}
+		} catch (err) { console.error('Failed to set starting balance:', err); alert('Failed to set starting balance.'); }
 	}
 
-	function handleDismissError() {
-		transactionStore.clearError();
-	}
+	function handleDismissError() { transactionStore.clearError(); }
 
 	function handleSortChange(event: { field: SortField; order: SortOrder }) {
-		sortField = event.field;
-		sortOrder = event.order;
+		sortField = event.field; sortOrder = event.order;
 		saveSortPreference({ field: event.field, order: event.order });
-		// Reset to first page when sort changes
 		currentPage = 1;
 	}
 
@@ -406,141 +265,82 @@
 		let openingBalance: OpeningBalance | null = null;
 		if (typeof ob === 'number') {
 			openingBalance = ob !== 0 ? { month: selectedMonth, balance: ob } : null;
-		} else {
-			openingBalance = ob as OpeningBalance | null;
-		}
-		
+		} else { openingBalance = ob as OpeningBalance | null; }
 		return {
-			month: selectedMonth,
-			transactions: monthlyData().transactions,
-			openingBalance,
+			month: selectedMonth, transactions: monthlyData().transactions, openingBalance,
 			congregationName: 'Bolaoen Congregation',
-			reportDate: new Date().toLocaleDateString('en-US', {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric'
-			})
+			reportDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 		};
 	}
 
 	async function generateReport() {
 		if (isGeneratingReport || !selectedMonth) return;
-		
-		isGeneratingReport = true;
-		showReportMenu = false;
+		isGeneratingReport = true; showReportMenu = false;
 		try {
 			const reportData = prepareReportData();
 			const monthYear = formatMonthYear(selectedMonth).toUpperCase().replace(' ', '_');
-			const filename = `${selectedTemplate}_${monthYear}.pdf`;
-			await PdfReportService.downloadReport(reportData, filename, selectedTemplate);
-		} catch (error) {
-			console.error('Error generating PDF:', error);
-			alert('Failed to generate PDF report. Please try again.');
-		} finally {
-			isGeneratingReport = false;
-		}
+			await PdfReportService.downloadReport(reportData, `${selectedTemplate}_${monthYear}.pdf`, selectedTemplate);
+		} catch (error) { console.error('Error generating PDF:', error); alert('Failed to generate PDF report.'); }
+		finally { isGeneratingReport = false; }
 	}
 
 	function handleAmountKeydown(event: KeyboardEvent) {
-		// Allow: backspace, delete, tab, escape, enter
 		if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
-			// Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
 			(event.keyCode === 65 && event.ctrlKey === true) ||
 			(event.keyCode === 67 && event.ctrlKey === true) ||
 			(event.keyCode === 86 && event.ctrlKey === true) ||
 			(event.keyCode === 88 && event.ctrlKey === true) ||
-			// Allow: home, end, left, right
-			(event.keyCode >= 35 && event.keyCode <= 39)) {
-			// let it happen, don't do anything
-			return;
-		}
-
-		// Allow decimal point
-		if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) {
-			return;
-		}
-
-		// Ensure that it is a number and stop the keypress
-		if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && (event.keyCode < 96 || event.keyCode > 105)) {
-			event.preventDefault();
-		}
+			(event.keyCode >= 35 && event.keyCode <= 39)) return;
+		if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) return;
+		if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && (event.keyCode < 96 || event.keyCode > 105)) event.preventDefault();
 	}
 </script>
 
 <svelte:head>
-	<title>Congregation Accounts Dashboard</title>
+	<title>Dashboard - Congregation Accounts</title>
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8" style="background: var(--color-bg-secondary); min-height: 100vh;">
-	<!-- Error Alert -->
+<div class="dashboard">
 	{#if $error}
-		<Alert
-			variant="error"
-			message={$error}
-			dismissible
-			ondismiss={handleDismissError}
-		/>
+		<Alert variant="error" message={$error} dismissible ondismiss={handleDismissError} />
 	{/if}
 
-	<!-- Loading State -->
 	{#if $loading}
 		<Card>
-			<div class="flex items-center justify-center py-12">
-				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-				<span class="ml-3" style="color: var(--color-text-secondary);">Loading transactions...</span>
+			<div class="flex items-center justify-center py-16">
+				<div class="animate-spin rounded-full h-6 w-6 border-2 border-transparent" style="border-top-color: var(--color-accent);"></div>
+				<span class="ml-3 text-sm" style="color: var(--color-text-secondary);">Loading transactions...</span>
 			</div>
 		</Card>
 	{:else}
-		<!-- Header with Actions -->
-		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+		<!-- Page Header -->
+		<div class="page-header">
 			<div>
-				<h1 class="text-2xl font-bold" style="color: var(--color-text-primary);">Dashboard</h1>
-				<p style="color: var(--color-text-secondary);">Manage congregation accounts and track financial activities</p>
+				<h1 class="page-title">Financial Overview</h1>
+				<p class="page-subtitle">Manage congregation accounts and track financial activities</p>
 			</div>
-			<div class="flex gap-2">
-				<Button
-					variant="primary"
-					onclick={() => showTransactionForm = true}
-				>
+			<div class="header-actions">
+				<Button variant="primary" onclick={() => showTransactionForm = true}>
+					<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+					</svg>
 					Add Transaction
 				</Button>
 				{#if selectedMonth && selectedMonth !== ''}
 					<div class="relative">
-						<Button
-							variant="secondary"
-							onclick={() => showReportMenu = !showReportMenu}
-							disabled={isGeneratingReport}
-						>
-							{#if isGeneratingReport}
-								Generating...
-							{:else}
-								Generate Report
-							{/if}
+						<Button variant="secondary" onclick={() => showReportMenu = !showReportMenu} disabled={isGeneratingReport}>
+							<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+							</svg>
+							{isGeneratingReport ? 'Generating...' : 'Export Report'}
 						</Button>
 						{#if showReportMenu}
-							<div class="absolute right-0 mt-2 w-64 rounded-lg shadow-lg z-10 p-4" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
+							<div class="report-dropdown">
 								<div class="space-y-3">
-									<Select
-										label="Report Template"
-										value={selectedTemplate}
-										options={templateOptions}
-										placeholder="Select a template..."
-										disabled={isGeneratingReport}
-										onchange={(value) => {
-											selectedTemplate = value as 'S-26_E' | 'S-30_E';
-										}}
-									/>
-									<Button
-										variant="primary"
-										onclick={generateReport}
-										disabled={isGeneratingReport}
-										class="w-full"
-									>
-										{#if isGeneratingReport}
-											Generating...
-										{:else}
-											Generate Report
-										{/if}
+									<Select label="Report Template" value={selectedTemplate} options={templateOptions} placeholder="Select a template..." disabled={isGeneratingReport}
+										onchange={(value) => { selectedTemplate = value as 'S-26_E' | 'S-30_E'; }} />
+									<Button variant="primary" onclick={generateReport} disabled={isGeneratingReport} class="w-full">
+										{isGeneratingReport ? 'Generating...' : 'Download PDF'}
 									</Button>
 								</div>
 							</div>
@@ -551,116 +351,121 @@
 		</div>
 
 		<!-- Month Picker -->
-		<MonthPicker
-			value={selectedMonth}
-			loading={$loading}
-			onchange={handleMonthChange}
-			showAll={true}
-		/>
+		<MonthPicker value={selectedMonth} loading={$loading} onchange={handleMonthChange} showAll={true} />
 
-		<!-- Summary Card -->
-		<Card>
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				<!-- Start of Month Balance -->
-				<div class="summary-card">
-					<div class="summary-header">
-						<h3 class="summary-label">Start of Month Balance</h3>
-						<button
-							type="button"
-							onclick={() => showOpeningBalanceForm = true}
-							class="summary-button"
-							title="Set Start of Month Balance"
-							aria-label="Set Start of Month Balance"
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-							</svg>
-						</button>
+		<!-- KPI Cards -->
+		<div class="kpi-grid">
+			<!-- Opening Balance -->
+			<div class="kpi-card">
+				<div class="kpi-header">
+					<div class="kpi-icon kpi-icon-neutral">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+						</svg>
 					</div>
-					<p class="summary-value">{formatCurrency(summaryTotals().openingBalance)}</p>
+					<button type="button" onclick={() => showOpeningBalanceForm = true} class="kpi-action" title="Set Balance" aria-label="Set Balance">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+						</svg>
+					</button>
 				</div>
-
-				<!-- Total Donations -->
-				<div class="summary-card">
-					<h3 class="summary-label">Total Donations</h3>
-					<p class="summary-value summary-value-success">
-						+{formatCurrency(summaryTotals().totalDonations)}
-					</p>
-				</div>
-
-				<!-- Total Expenses -->
-				<div class="summary-card">
-					<h3 class="summary-label">Total Expenses</h3>
-					<p class="summary-value summary-value-error">
-						-{formatCurrency(summaryTotals().totalExpenses)}
-					</p>
-				</div>
-
-				<!-- Worldwide Work Donations -->
-				<div class="summary-card">
-					<h3 class="summary-label">Worldwide Work Donations</h3>
-					<p class="summary-value summary-value-success">
-						+{formatCurrency(summaryTotals().worldwideDonations)}
-					</p>
-				</div>
-
-				<!-- Local Congregation Donations -->
-				<div class="summary-card">
-					<h3 class="summary-label">Local Congregation Donations</h3>
-					<p class="summary-value summary-value-success">
-						+{formatCurrency(summaryTotals().localDonations)}
-					</p>
-				</div>
-
-				<!-- End of Month Balance -->
-				<div class="summary-card">
-					<h3 class="summary-label">End of Month Balance</h3>
-					<p class="summary-value summary-value-white">
-						{formatCurrency(summaryTotals().endBalance)}
-					</p>
-				</div>
+				<p class="kpi-label">Opening Balance</p>
+				<p class="kpi-value tabular-nums">{formatCurrency(summaryTotals().openingBalance)}</p>
 			</div>
-		</Card>
 
-		<!-- Financial Chart -->
+			<!-- Total Donations -->
+			<div class="kpi-card">
+				<div class="kpi-header">
+					<div class="kpi-icon kpi-icon-income">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/>
+						</svg>
+					</div>
+				</div>
+				<p class="kpi-label">Total Donations</p>
+				<p class="kpi-value tabular-nums" style="color: var(--color-income);">+{formatCurrency(summaryTotals().totalDonations)}</p>
+			</div>
+
+			<!-- Total Expenses -->
+			<div class="kpi-card">
+				<div class="kpi-header">
+					<div class="kpi-icon kpi-icon-expense">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181"/>
+						</svg>
+					</div>
+				</div>
+				<p class="kpi-label">Total Expenses</p>
+				<p class="kpi-value tabular-nums" style="color: var(--color-expense);">-{formatCurrency(summaryTotals().totalExpenses)}</p>
+			</div>
+
+			<!-- Worldwide Donations -->
+			<div class="kpi-card">
+				<div class="kpi-header">
+					<div class="kpi-icon kpi-icon-info">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/>
+						</svg>
+					</div>
+				</div>
+				<p class="kpi-label">Worldwide Work</p>
+				<p class="kpi-value tabular-nums" style="color: var(--color-income);">+{formatCurrency(summaryTotals().worldwideDonations)}</p>
+			</div>
+
+			<!-- Local Donations -->
+			<div class="kpi-card">
+				<div class="kpi-header">
+					<div class="kpi-icon kpi-icon-income">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819"/>
+						</svg>
+					</div>
+				</div>
+				<p class="kpi-label">Local Congregation</p>
+				<p class="kpi-value tabular-nums" style="color: var(--color-income);">+{formatCurrency(summaryTotals().localDonations)}</p>
+			</div>
+
+			<!-- End Balance -->
+			<div class="kpi-card kpi-card-highlight">
+				<div class="kpi-header">
+					<div class="kpi-icon kpi-icon-highlight">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+						</svg>
+					</div>
+				</div>
+				<p class="kpi-label" style="color: rgba(255,255,255,0.8);">Closing Balance</p>
+				<p class="kpi-value tabular-nums" style="color: #ffffff;">{formatCurrency(summaryTotals().endBalance)}</p>
+			</div>
+		</div>
+
+		<!-- Chart -->
 		<Card title="Financial Overview" padding="sm">
-			<div class="h-96 -mt-2">
-				<FinancialChart
-					transactions={monthlyData().transactions}
-					month={selectedMonth || 'All'}
-				/>
+			<div class="h-80">
+				<FinancialChart transactions={monthlyData().transactions} month={selectedMonth || 'All'} />
 			</div>
 		</Card>
 
-		<!-- Chart Summary & Analysis -->
+		<!-- Chart Summary -->
 		<ChartSummary />
 
-		<!-- Monthly Images (Cloudinary) -->
+		<!-- Monthly Images -->
 		<MonthlyImages selectedMonth={selectedMonth} />
 
-		<!-- Transaction Table - Full Width -->
+		<!-- Transaction Table -->
 		<div class="w-full">
-			<!-- Filter Buttons -->
-			<div class="mb-4 flex gap-2">
-				<button
-					onclick={() => { transactionFilter = 'all'; currentPage = 1; }}
-					class="filter-tab {transactionFilter === 'all' ? 'filter-tab-active' : ''}"
-				>
+			<!-- Filter Tabs -->
+			<div class="filter-bar">
+				<button onclick={() => { transactionFilter = 'all'; currentPage = 1; }} class="filter-tab {transactionFilter === 'all' ? 'filter-active' : ''}">
 					All
 				</button>
-				<button
-					onclick={() => { transactionFilter = 'income'; currentPage = 1; }}
-					class="filter-tab {transactionFilter === 'income' ? 'filter-tab-active' : ''}"
-				>
+				<button onclick={() => { transactionFilter = 'income'; currentPage = 1; }} class="filter-tab {transactionFilter === 'income' ? 'filter-active' : ''}">
 					Donations
 				</button>
-				<button
-					onclick={() => { transactionFilter = 'expense'; currentPage = 1; }}
-					class="filter-tab {transactionFilter === 'expense' ? 'filter-tab-active' : ''}"
-				>
+				<button onclick={() => { transactionFilter = 'expense'; currentPage = 1; }} class="filter-tab {transactionFilter === 'expense' ? 'filter-active' : ''}">
 					Expenses
 				</button>
-				</div>
+			</div>
 
 			<TransactionList
 				transactions={paginatedTransactions()}
@@ -674,265 +479,123 @@
 				onsortchange={handleSortChange}
 			/>
 
-			<!-- Pagination Controls -->
+			<!-- Pagination -->
 			{#if totalPages > 1}
-				<div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-lg" style="background: var(--color-bg-primary); border: 1px solid var(--color-border-primary);">
-						<!-- Page Info -->
-						<div class="text-sm" style="color: var(--color-text-secondary);">
-							Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length} transactions
-						</div>
-
-						<!-- Page Navigation -->
-						<div class="flex items-center gap-2">
-							<!-- Previous Button -->
-							<button
-								onclick={previousPage}
-								disabled={currentPage === 1}
-								class="px-3 py-1 rounded-lg transition-all duration-200 {currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50'}"
-								style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);"
-								aria-label="Previous page"
-							>
-								<svg class="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-								</svg>
-							</button>
-
-							<!-- Page Numbers -->
-							<div class="flex items-center gap-1">
-								{#each pageNumbers() as pageNum}
-									{#if pageNum === -1}
-										<span class="px-2" style="color: var(--color-text-secondary);">...</span>
-									{:else}
-										<button
-											onclick={() => goToPage(pageNum)}
-											class="min-w-[32px] px-2 py-1 rounded-lg font-medium transition-all duration-200 {currentPage === pageNum ? 'bg-indigo-600 text-white' : 'hover:bg-indigo-50'}"
-											style="{currentPage === pageNum ? '' : 'background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);'}"
-										>
-											{pageNum}
-										</button>
-									{/if}
-								{/each}
-							</div>
-
-							<!-- Next Button -->
-							<button
-								onclick={nextPage}
-								disabled={currentPage === totalPages}
-								class="px-3 py-1 rounded-lg transition-all duration-200 {currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50'}"
-								style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); color: var(--color-text-primary);"
-								aria-label="Next page"
-							>
-								<svg class="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-								</svg>
-							</button>
-						</div>
-
-						<!-- Items per page selector -->
-						<div class="flex items-center gap-2">
-							<label for="items-per-page" class="text-sm" style="color: var(--color-text-secondary);">
-								Show:
-							</label>
-							<select
-								id="items-per-page"
-								bind:value={itemsPerPage}
-								onchange={() => currentPage = 1}
-								class="px-3 py-1 rounded-lg border focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-								style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
-							>
-								<option value={5}>5</option>
-								<option value={10}>10</option>
-								<option value={20}>20</option>
-								<option value={50}>50</option>
-								<option value={100}>100</option>
-							</select>
-						</div>
+				<div class="pagination">
+					<div class="pagination-info">
+						Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length}
 					</div>
-				{/if}
+					<div class="pagination-controls">
+						<button onclick={previousPage} disabled={currentPage === 1} class="pagination-btn" aria-label="Previous page">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+							</svg>
+						</button>
+						{#each pageNumbers() as pageNum}
+							{#if pageNum === -1}
+								<span class="pagination-ellipsis">...</span>
+							{:else}
+								<button onclick={() => goToPage(pageNum)} class="pagination-btn {currentPage === pageNum ? 'pagination-active' : ''}">
+									{pageNum}
+								</button>
+							{/if}
+						{/each}
+						<button onclick={nextPage} disabled={currentPage === totalPages} class="pagination-btn" aria-label="Next page">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+							</svg>
+						</button>
+					</div>
+					<div class="pagination-size">
+						<label for="items-per-page" class="text-xs" style="color: var(--color-text-secondary);">Show:</label>
+						<select id="items-per-page" bind:value={itemsPerPage} onchange={() => currentPage = 1} class="pagination-select">
+							<option value={5}>5</option>
+							<option value={10}>10</option>
+							<option value={20}>20</option>
+							<option value={50}>50</option>
+							<option value={100}>100</option>
+						</select>
+					</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	<!-- Transaction Form Modal -->
-	<Modal 
-		open={showTransactionForm} 
-		title="Add New Transaction"
-		size="md"
-		onclose={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}
-	>
-		<!-- Tabs -->
-		<div class="flex border-b mb-5" style="border-color: var(--color-border-primary);">
-			<button
-				type="button"
-				onclick={() => addTransactionTab = 'donations'}
-				class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-				style="{addTransactionTab === 'donations'
-					? 'border-color: var(--color-primary, #6366f1); color: var(--color-primary, #6366f1);'
-					: 'border-color: transparent; color: var(--color-text-secondary);'}"
-			>
+	<!-- Add Transaction Modal -->
+	<Modal open={showTransactionForm} title="Add New Transaction" size="md" onclose={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}>
+		<div class="flex border-b mb-4" style="border-color: var(--color-border-primary);">
+			<button type="button" onclick={() => addTransactionTab = 'donations'}
+				class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+				style="{addTransactionTab === 'donations' ? 'border-color: var(--color-accent); color: var(--color-accent);' : 'border-color: transparent; color: var(--color-text-secondary);'}">
 				Donations
 			</button>
-			<button
-				type="button"
-				onclick={() => addTransactionTab = 'expenses'}
-				class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-				style="{addTransactionTab === 'expenses'
-					? 'border-color: var(--color-primary, #6366f1); color: var(--color-primary, #6366f1);'
-					: 'border-color: transparent; color: var(--color-text-secondary);'}"
-			>
+			<button type="button" onclick={() => addTransactionTab = 'expenses'}
+				class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+				style="{addTransactionTab === 'expenses' ? 'border-color: var(--color-accent); color: var(--color-accent);' : 'border-color: transparent; color: var(--color-text-secondary);'}">
 				Expenses
 			</button>
 		</div>
-
 		{#if addTransactionTab === 'donations'}
-			<CombinedDonationForm
-				loading={submitting}
-				onsubmit={handleCombinedDonationSubmit}
-				oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}
-			/>
+			<CombinedDonationForm loading={submitting} onsubmit={handleCombinedDonationSubmit} oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }} />
 		{:else}
-			<TransactionForm
-				loading={submitting}
-				initialData={{ type: 'expense' }}
-				onsubmit={handleTransactionSubmit}
-				oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }}
-			/>
+			<TransactionForm loading={submitting} initialData={{ type: 'expense' }} onsubmit={handleTransactionSubmit} oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }} />
 		{/if}
 	</Modal>
 
-	<!-- Opening Balance Form Modal -->
-	<Modal
-		open={showOpeningBalanceForm}
-		title="Set Start of Month Balance"
-		size="sm"
-		onclose={() => showOpeningBalanceForm = false}
-	>
+	<!-- Opening Balance Modal -->
+	<Modal open={showOpeningBalanceForm} title="Set Opening Balance" size="sm" onclose={() => showOpeningBalanceForm = false}>
 		<div class="space-y-4">
 			<div>
-				<label for="opening-balance" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
-					Start of Month Balance Amount
-				</label>
-				<input
-					id="opening-balance"
-					type="text"
-					bind:value={newOpeningBalance}
-					placeholder="0.00"
-					onkeydown={handleAmountKeydown}
-					class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
-				/>
+				<label for="opening-balance" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">Amount</label>
+				<input id="opening-balance" type="text" bind:value={newOpeningBalance} placeholder="0.00" onkeydown={handleAmountKeydown}
+					class="block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary); --tw-ring-color: var(--color-accent-alpha);" />
 			</div>
-
 			<div>
-				<label for="opening-balance-date" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
-					Date
-				</label>
-				<input
-					id="opening-balance-date"
-					type="date"
-					bind:value={openingBalanceDate}
-					required
-					class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
-				/>
+				<label for="opening-balance-date" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">Date</label>
+				<input id="opening-balance-date" type="date" bind:value={openingBalanceDate} required
+					class="block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);" />
 			</div>
-
 			<div>
-				<label for="opening-balance-note" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">
-					Note (Optional)
-				</label>
-				<textarea
-					id="opening-balance-note"
-					bind:value={openingBalanceNote}
-					rows="3"
-					placeholder="Add a note about this starting balance..."
-					class="block w-full rounded-lg border px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"
-				></textarea>
+				<label for="opening-balance-note" class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary);">Note (Optional)</label>
+				<textarea id="opening-balance-note" bind:value={openingBalanceNote} rows="2" placeholder="Add a note..."
+					class="block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+					style="background: var(--color-bg-primary); border-color: var(--color-border-primary); color: var(--color-text-primary);"></textarea>
 			</div>
-
-			<div class="flex justify-end space-x-3 pt-4">
-				<Button
-					variant="secondary"
-					onclick={() => showOpeningBalanceForm = false}
-				>
-					Cancel
-				</Button>
-				<Button
-					variant="primary"
-					onclick={handleSetOpeningBalance}
-				>
-					Set Balance
-				</Button>
+			<div class="flex justify-end gap-2 pt-2">
+				<Button variant="secondary" onclick={() => showOpeningBalanceForm = false}>Cancel</Button>
+				<Button variant="primary" onclick={handleSetOpeningBalance}>Set Balance</Button>
 			</div>
 		</div>
 	</Modal>
 
-	<!-- Edit Transaction Form Modal -->
-	<Modal
-		open={showEditTransactionForm}
-		title="Edit Transaction"
-		size="md"
-		onclose={() => {
-			showEditTransactionForm = false;
-			editingTransaction = null;
-		}}
-	>
+	<!-- Edit Transaction Modal -->
+	<Modal open={showEditTransactionForm} title="Edit Transaction" size="md" onclose={() => { showEditTransactionForm = false; editingTransaction = null; }}>
 		{#if editingTransaction}
-			<TransactionForm
-				loading={submitting}
-				initialData={{
-					date: editingTransaction.date,
-					description: editingTransaction.description,
-					category: editingTransaction.category,
-					amount: editingTransaction.amount,
-					type: editingTransaction.type
-				}}
+			<TransactionForm loading={submitting}
+				initialData={{ date: editingTransaction.date, description: editingTransaction.description, category: editingTransaction.category, amount: editingTransaction.amount, type: editingTransaction.type }}
 				onsubmit={handleUpdateTransaction}
-				oncancel={() => {
-					showEditTransactionForm = false;
-					editingTransaction = null;
-				}}
-			/>
+				oncancel={() => { showEditTransactionForm = false; editingTransaction = null; }} />
 		{/if}
 	</Modal>
 
 	<!-- Delete Confirmation Modal -->
-	<Modal
-		open={showDeleteConfirmation}
-		title="Delete Transaction"
-		size="sm"
-		onclose={cancelDelete}
-	>
-		<div class="space-y-4">
-			<div class="text-center py-4">
-				<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-					<svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-					</svg>
-				</div>
-				<h3 class="text-lg font-semibold mb-2" style="color: var(--color-text-primary);">
-					Confirm Delete
-				</h3>
-				<p class="text-sm" style="color: var(--color-text-secondary);">
-					Are you sure you want to delete this transaction? This action cannot be undone.
-				</p>
+	<Modal open={showDeleteConfirmation} title="Delete Transaction" size="sm" onclose={cancelDelete}>
+		<div class="text-center py-4 space-y-4">
+			<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full" style="background: var(--color-error-bg);">
+				<svg class="h-5 w-5" style="color: var(--color-error);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
 			</div>
-
-			<div class="flex justify-center gap-3 pt-2">
-				<Button
-					variant="secondary"
-					onclick={cancelDelete}
-					disabled={submitting}
-				>
-					Cancel
-				</Button>
-				<Button
-					variant="primary"
-					onclick={confirmDelete}
-					disabled={submitting}
-					class="bg-red-600 hover:bg-red-700 text-white"
-				>
-					{submitting ? 'Deleting...' : 'Delete Transaction'}
+			<div>
+				<h3 class="text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Are you sure?</h3>
+				<p class="text-xs" style="color: var(--color-text-secondary);">This action cannot be undone.</p>
+			</div>
+			<div class="flex justify-center gap-2 pt-2">
+				<Button variant="secondary" onclick={cancelDelete} disabled={submitting}>Cancel</Button>
+				<Button variant="danger" onclick={confirmDelete} disabled={submitting}>
+					{submitting ? 'Deleting...' : 'Delete'}
 				</Button>
 			</div>
 		</div>
@@ -940,141 +603,295 @@
 </div>
 
 <style>
-	.summary-card {
+	.dashboard {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	/* Page Header */
+	.page-header {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	@media (min-width: 640px) {
+		.page-header {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+		}
+	}
+
+	.page-title {
+		font-size: 1.375rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0;
+	}
+
+	.page-subtitle {
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary);
+		margin: 0.25rem 0 0 0;
+	}
+
+	.header-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.report-dropdown {
+		position: absolute;
+		right: 0;
+		margin-top: 0.5rem;
+		width: 16rem;
 		padding: 1rem;
-		border-radius: 0.75rem;
+		border-radius: 0.5rem;
+		z-index: 10;
 		background: var(--color-bg-primary);
 		border: 1px solid var(--color-border-primary);
-		transition: all 0.2s ease;
+		box-shadow: var(--shadow-lg);
+	}
+
+	/* KPI Grid */
+	.kpi-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.75rem;
+	}
+
+	@media (min-width: 768px) {
+		.kpi-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.kpi-grid {
+			grid-template-columns: repeat(6, 1fr);
+		}
+	}
+
+	.kpi-card {
+		background: var(--color-surface-elevated);
+		border: 1px solid var(--color-border-primary);
+		border-radius: 0.5rem;
+		padding: 1rem;
 		position: relative;
-		overflow: hidden;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 	}
 
-	.summary-card::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 3px;
-		height: 100%;
-		background: linear-gradient(180deg, #e5e7eb, #d1d5db);
-		opacity: 1;
+	.kpi-card-highlight {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
 	}
 
-	.summary-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-		border-color: var(--color-border-primary);
-	}
-
-	.summary-card:hover::before {
-		opacity: 1;
-		width: 4px;
-	}
-
-	.summary-header {
+	.kpi-header {
 		display: flex;
+		align-items: center;
 		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.75rem;
 	}
 
-	.summary-label {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-secondary);
-		margin: 0;
-		line-height: 1.3;
-	}
-
-	.summary-button {
-		padding: 0.25rem;
-		border-radius: 0.375rem;
-		border: none;
-		background: var(--color-bg-secondary);
-		color: var(--color-text-primary);
-		cursor: pointer;
-		transition: all 0.2s ease;
+	.kpi-icon {
+		width: 32px;
+		height: 32px;
+		border-radius: 6px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		flex-shrink: 0;
 	}
 
-	.summary-button:hover {
-		background: #6366f1;
-		color: white;
-		transform: scale(1.05);
+	.kpi-icon-neutral {
+		background: var(--color-bg-tertiary);
+		color: var(--color-text-secondary);
 	}
 
-	.summary-button:active {
-		transform: scale(0.95);
+	.kpi-icon-income {
+		background: var(--color-income-light);
+		color: var(--color-income);
 	}
 
-	.summary-value {
-		font-size: 1.5rem;
+	.kpi-icon-expense {
+		background: var(--color-expense-light);
+		color: var(--color-expense);
+	}
+
+	.kpi-icon-info {
+		background: var(--color-info-bg);
+		color: var(--color-info);
+	}
+
+	.kpi-icon-highlight {
+		background: rgba(255, 255, 255, 0.2);
+		color: #ffffff;
+	}
+
+	.kpi-action {
+		padding: 0.25rem;
+		border-radius: 4px;
+		border: none;
+		background: transparent;
+		color: var(--color-text-tertiary);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.kpi-action:hover {
+		background: var(--color-accent-light);
+		color: var(--color-accent);
+	}
+
+	.kpi-label {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		margin: 0 0 0.25rem 0;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
+
+	.kpi-value {
+		font-size: 1.125rem;
 		font-weight: 700;
 		color: var(--color-text-primary);
 		margin: 0;
 		line-height: 1.2;
-		letter-spacing: -0.02em;
 	}
 
-	.summary-value-success {
-		color: var(--color-success);
-	}
-
-	.summary-value-error {
-		color: var(--color-error);
-	}
-
-	.summary-value-white {
-		color: white;
+	/* Filter Bar */
+	.filter-bar {
+		display: flex;
+		gap: 0.25rem;
+		margin-bottom: 0.75rem;
+		padding: 0.25rem;
+		background: var(--color-bg-tertiary);
+		border-radius: 0.5rem;
+		width: fit-content;
 	}
 
 	.filter-tab {
-		padding: 0.5rem 1rem;
-		border-radius: 0.5rem;
+		padding: 0.375rem 0.875rem;
+		border-radius: 0.375rem;
+		font-size: 0.8125rem;
 		font-weight: 500;
-		transition: all 0.2s ease;
-		background: var(--color-bg-secondary);
-		color: var(--color-text-primary);
-		border: 1px solid var(--color-border-primary);
+		color: var(--color-text-secondary);
+		background: transparent;
+		border: none;
 		cursor: pointer;
-		position: relative;
+		transition: all 0.15s;
 	}
 
 	.filter-tab:hover {
+		color: var(--color-text-primary);
+	}
+
+	.filter-active {
+		background: var(--color-bg-primary);
+		color: var(--color-text-primary);
+		box-shadow: var(--shadow-sm);
+	}
+
+	/* Pagination */
+	.pagination {
+		margin-top: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: 0.5rem;
+		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border-primary);
+		align-items: center;
+	}
+
+	@media (min-width: 640px) {
+		.pagination {
+			flex-direction: row;
+			justify-content: space-between;
+		}
+	}
+
+	.pagination-info {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+	}
+
+	.pagination-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.pagination-btn {
+		min-width: 28px;
+		height: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		border: 1px solid var(--color-border-primary);
+		background: var(--color-bg-primary);
+		color: var(--color-text-primary);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.pagination-btn:hover:not(:disabled) {
 		background: var(--color-surface-hover);
-		border-color: var(--color-border-primary);
 	}
 
-	.filter-tab-active {
-		background: #4f46e5 !important;
-		color: white !important;
-		border-color: #4f46e5 !important;
-		font-weight: 600;
-		box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+	.pagination-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
 	}
 
-	.filter-tab-active:hover {
-		background: #4338ca !important;
-		border-color: #4338ca !important;
+	.pagination-active {
+		background: var(--color-accent) !important;
+		color: #ffffff !important;
+		border-color: var(--color-accent) !important;
 	}
 
+	.pagination-ellipsis {
+		padding: 0 0.25rem;
+		color: var(--color-text-tertiary);
+		font-size: 0.75rem;
+	}
 
-	@media (max-width: 768px) {
-		.summary-card {
-			padding: 0.875rem;
+	.pagination-size {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.pagination-select {
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		border: 1px solid var(--color-border-primary);
+		background: var(--color-bg-primary);
+		color: var(--color-text-primary);
+		font-size: 0.75rem;
+	}
+
+	@media (max-width: 640px) {
+		.kpi-grid {
+			grid-template-columns: repeat(2, 1fr);
 		}
 
-		.summary-value {
-			font-size: 1.25rem;
+		.kpi-value {
+			font-size: 0.9375rem;
 		}
 
-		.summary-label {
-			font-size: 0.75rem;
+		.dashboard {
+			padding: 1rem;
+			gap: 1rem;
 		}
 	}
 </style>

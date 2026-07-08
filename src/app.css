@@ -1,104 +1,129 @@
 @import 'tailwindcss';
 
-/* CSS Variables for theming */
+/* CSS Variables for theming - Professional Accounting Palette */
 :root {
 	/* Light theme colors */
 	--color-bg-primary: #ffffff;
 	--color-bg-secondary: #f8fafc;
 	--color-bg-tertiary: #f1f5f9;
-	--color-text-primary: #1e293b;
-	--color-text-secondary: #64748b;
+	--color-text-primary: #0f172a;
+	--color-text-secondary: #475569;
 	--color-text-tertiary: #94a3b8;
 	--color-border-primary: #e2e8f0;
 	--color-border-secondary: #cbd5e1;
 	--color-surface-elevated: #ffffff;
-	--color-surface-hover: #f8fafc;
-	--color-glass-bg: rgba(255, 255, 255, 0.8);
-	--color-glass-border: rgba(255, 255, 255, 0.2);
-	
-	/* Accent colors */
-	--color-accent: #3b82f6;
-	--color-accent-hover: #2563eb;
-	--color-accent-alpha: rgba(59, 130, 246, 0.1);
-	
+	--color-surface-hover: #f1f5f9;
+
+	/* Primary accent - deep professional blue */
+	--color-accent: #1e40af;
+	--color-accent-hover: #1e3a8a;
+	--color-accent-light: #dbeafe;
+	--color-accent-alpha: rgba(30, 64, 175, 0.08);
+
 	/* Surface colors */
 	--color-surface-primary: #f8fafc;
 	--color-surface-secondary: #f1f5f9;
-	
+
+	/* Financial colors */
+	--color-income: #059669;
+	--color-income-light: #ecfdf5;
+	--color-income-border: #a7f3d0;
+	--color-expense: #dc2626;
+	--color-expense-light: #fef2f2;
+	--color-expense-border: #fecaca;
+
 	/* Status colors */
-	--color-success: #10b981;
-	--color-success-hover: #059669;
-	--color-error: #ef4444;
-	--color-error-hover: #dc2626;
-	--color-warning: #f59e0b;
-	--color-warning-hover: #d97706;
-	--color-info: #3b82f6;
-	--color-info-hover: #2563eb;
-	
+	--color-success: #059669;
+	--color-success-hover: #047857;
+	--color-error: #dc2626;
+	--color-error-hover: #b91c1c;
+	--color-warning: #d97706;
+	--color-warning-hover: #b45309;
+	--color-info: #0284c7;
+	--color-info-hover: #0369a1;
+
 	/* Status backgrounds */
-	--color-success-bg: #f0fdf4;
-	--color-success-border: #bbf7d0;
+	--color-success-bg: #ecfdf5;
+	--color-success-border: #a7f3d0;
 	--color-error-bg: #fef2f2;
 	--color-error-border: #fecaca;
 	--color-warning-bg: #fffbeb;
-	--color-warning-border: #fed7aa;
-	--color-info-bg: #eff6ff;
-	--color-info-border: #bfdbfe;
-	
+	--color-warning-border: #fde68a;
+	--color-info-bg: #f0f9ff;
+	--color-info-border: #bae6fd;
+
+	/* Sidebar */
+	--color-sidebar-bg: #0f172a;
+	--color-sidebar-hover: #1e293b;
+	--color-sidebar-active: #1e3a8a;
+	--color-sidebar-text: #94a3b8;
+	--color-sidebar-text-active: #ffffff;
+	--color-sidebar-border: #1e293b;
+
+	/* Shadows */
 	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-	--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-	--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-	--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+	--shadow-md: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+	--shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+	--shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 /* Dark theme colors */
 :root.dark {
-	--color-bg-primary: #0f172a;
-	--color-bg-secondary: #1e293b;
-	--color-bg-tertiary: #334155;
-	--color-text-primary: #f8fafc;
-	--color-text-secondary: #cbd5e1;
-	--color-text-tertiary: #94a3b8;
-	--color-border-primary: #334155;
-	--color-border-secondary: #475569;
-	--color-surface-elevated: #1e293b;
-	--color-surface-hover: #334155;
-	--color-glass-bg: rgba(30, 41, 59, 0.8);
-	--color-glass-border: rgba(148, 163, 184, 0.2);
-	
-	/* Accent colors (same in both themes) */
+	--color-bg-primary: #09090b;
+	--color-bg-secondary: #0c0e14;
+	--color-bg-tertiary: #1a1d27;
+	--color-text-primary: #f1f5f9;
+	--color-text-secondary: #94a3b8;
+	--color-text-tertiary: #64748b;
+	--color-border-primary: #1e2230;
+	--color-border-secondary: #2a2f3d;
+	--color-surface-elevated: #111318;
+	--color-surface-hover: #1a1d27;
+
 	--color-accent: #3b82f6;
 	--color-accent-hover: #2563eb;
+	--color-accent-light: rgba(59, 130, 246, 0.15);
 	--color-accent-alpha: rgba(59, 130, 246, 0.1);
-	
-	/* Surface colors */
-	--color-surface-primary: #334155;
-	--color-surface-secondary: #475569;
-	
-	/* Status colors (same in both themes) */
-	--color-success: #10b981;
-	--color-success-hover: #059669;
-	--color-error: #ef4444;
-	--color-error-hover: #dc2626;
-	--color-warning: #f59e0b;
-	--color-warning-hover: #d97706;
-	--color-info: #3b82f6;
-	--color-info-hover: #2563eb;
-	
-	/* Status backgrounds - darker for dark theme */
-	--color-success-bg: rgba(16, 185, 129, 0.1);
-	--color-success-border: rgba(16, 185, 129, 0.3);
-	--color-error-bg: rgba(239, 68, 68, 0.1);
-	--color-error-border: rgba(239, 68, 68, 0.3);
-	--color-warning-bg: rgba(245, 158, 11, 0.1);
-	--color-warning-border: rgba(245, 158, 11, 0.3);
-	--color-info-bg: rgba(59, 130, 246, 0.1);
-	--color-info-border: rgba(59, 130, 246, 0.3);
-	
+
+	--color-surface-primary: #111318;
+	--color-surface-secondary: #1a1d27;
+
+	--color-income: #34d399;
+	--color-income-light: rgba(52, 211, 153, 0.1);
+	--color-income-border: rgba(52, 211, 153, 0.3);
+	--color-expense: #f87171;
+	--color-expense-light: rgba(248, 113, 113, 0.1);
+	--color-expense-border: rgba(248, 113, 113, 0.3);
+
+	--color-success: #34d399;
+	--color-success-hover: #10b981;
+	--color-error: #f87171;
+	--color-error-hover: #ef4444;
+	--color-warning: #fbbf24;
+	--color-warning-hover: #f59e0b;
+	--color-info: #38bdf8;
+	--color-info-hover: #0ea5e9;
+
+	--color-success-bg: rgba(52, 211, 153, 0.1);
+	--color-success-border: rgba(52, 211, 153, 0.3);
+	--color-error-bg: rgba(248, 113, 113, 0.1);
+	--color-error-border: rgba(248, 113, 113, 0.3);
+	--color-warning-bg: rgba(251, 191, 36, 0.1);
+	--color-warning-border: rgba(251, 191, 36, 0.3);
+	--color-info-bg: rgba(56, 189, 248, 0.1);
+	--color-info-border: rgba(56, 189, 248, 0.3);
+
+	--color-sidebar-bg: #060810;
+	--color-sidebar-hover: #111318;
+	--color-sidebar-active: #1e3a8a;
+	--color-sidebar-text: #64748b;
+	--color-sidebar-text-active: #f1f5f9;
+	--color-sidebar-border: #141720;
+
 	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
-	--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-	--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-	--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+	--shadow-md: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+	--shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+	--shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }
 
 /* Global font configuration */
@@ -108,10 +133,33 @@
 
 html, body {
 	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-	transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Smooth theme transitions */
-* {
-	transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+/* Tabular numbers for financial data */
+.tabular-nums {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-border-secondary);
+	border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--color-text-tertiary);
+}
+
+/* Smooth scrolling */
+html {
+	scroll-behavior: smooth;
 }

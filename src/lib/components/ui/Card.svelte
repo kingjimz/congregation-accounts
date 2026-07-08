@@ -9,7 +9,7 @@
 		footer?: any;
 	}
 
-	let { 
+	let {
 		title = '',
 		variant = 'default',
 		padding = 'md',
@@ -19,35 +19,30 @@
 		footer
 	}: Props = $props();
 
-	const baseClasses = 'rounded-xl shadow-sm border';
-	
-	const variantClasses = {
-		default: '',
-		success: 'bg-green-50 border-green-200',
-		warning: 'bg-yellow-50 border-yellow-200',
-		error: 'bg-red-50 border-red-200',
-		info: 'bg-blue-50 border-blue-200'
-	};
-
 	const paddingClasses = {
 		none: '',
 		sm: 'p-4',
-		md: 'p-6',
-		lg: 'p-8'
+		md: 'p-5',
+		lg: 'p-6'
 	};
 
-	const cardClasses = $derived(`${baseClasses} ${variantClasses[variant]} ${className}`);
 	const contentClasses = $derived(paddingClasses[padding]);
 </script>
 
-<div class={cardClasses} style="background: var(--color-surface-elevated); border-color: var(--color-border-primary);">
+<div
+	class="card {className}"
+	class:card-success={variant === 'success'}
+	class:card-warning={variant === 'warning'}
+	class:card-error={variant === 'error'}
+	class:card-info={variant === 'info'}
+>
 	{#if header}
-		<div class="border-b px-6 py-4" style="border-color: var(--color-border-primary);">
+		<div class="card-header">
 			{@render header()}
 		</div>
 	{:else if title}
-		<div class="border-b px-6 py-4" style="border-color: var(--color-border-primary);">
-			<h3 class="text-lg font-medium" style="color: var(--color-text-primary);">{title}</h3>
+		<div class="card-header">
+			<h3 class="card-title">{title}</h3>
 		</div>
 	{/if}
 
@@ -56,8 +51,50 @@
 	</div>
 
 	{#if footer}
-		<div class="border-t px-6 py-4" style="border-color: var(--color-border-primary);">
+		<div class="card-footer">
 			{@render footer()}
 		</div>
 	{/if}
 </div>
+
+<style>
+	.card {
+		background: var(--color-surface-elevated);
+		border: 1px solid var(--color-border-primary);
+		border-radius: 0.5rem;
+		box-shadow: var(--shadow-sm);
+	}
+
+	.card-success {
+		border-left: 3px solid var(--color-success);
+	}
+
+	.card-warning {
+		border-left: 3px solid var(--color-warning);
+	}
+
+	.card-error {
+		border-left: 3px solid var(--color-error);
+	}
+
+	.card-info {
+		border-left: 3px solid var(--color-info);
+	}
+
+	.card-header {
+		padding: 0.875rem 1.25rem;
+		border-bottom: 1px solid var(--color-border-primary);
+	}
+
+	.card-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+		margin: 0;
+	}
+
+	.card-footer {
+		padding: 0.875rem 1.25rem;
+		border-top: 1px solid var(--color-border-primary);
+	}
+</style>

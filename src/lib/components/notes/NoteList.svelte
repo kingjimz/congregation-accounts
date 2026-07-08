@@ -40,7 +40,7 @@
 			<button
 				class="note-item"
 				style="
-					background: {active ? 'var(--color-primary)' : 'transparent'};
+					background: {active ? 'var(--color-accent)' : 'transparent'};
 					border-bottom: 1px solid var(--color-border-primary);
 				"
 				onclick={() => onselect?.(note)}
