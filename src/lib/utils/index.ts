@@ -45,8 +45,12 @@ export {
   linearRegression,
   aggregateMonthlyDonations,
   forecastDonations,
-  getForecastConfidence,
+  backtestForecast,
+  sumMonthToDate,
+  getMonthElapsedFraction,
   type RegressionResult,
   type ForecastPoint,
-  type MonthlyTotal
+  type ForecastOptions,
+  type MonthlyTotal,
+  type BacktestResult
 } from './forecast';

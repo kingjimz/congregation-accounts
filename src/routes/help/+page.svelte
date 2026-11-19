@@ -58,7 +58,7 @@
 				},
 				{
 					title: 'Donation Forecast',
-					content: 'Once you have at least three months of historical data, the Donation Forecast section becomes available. It uses linear regression to project future donations.\n\nFeatures:\n\nA 12-month timeline combining historical data with projected values\nForecasted values shown with dashed lines to distinguish from actuals\nToggle between Total view and Category breakdown (Worldwide Work vs. Local Congregation)\nYear selector to view different periods\nSummary cards with 3-month projections per category',
+					content: 'Once you have at least three months of historical data, the Donation Forecast section becomes available. It projects future donations from the recent trend and, once a full year of history exists, the seasonal pattern in giving. Donations already entered for the current month are taken into account, and months with no entries at all are skipped instead of being counted as zero.\n\nFeatures:\n\nA 12-month timeline combining historical data with projected values\nForecasted values shown with dashed lines to distinguish from actuals\nToggle between Total view and Category breakdown (Worldwide Work vs. Local Congregation)\nYear selector to view different periods\nSummary cards with 3-month projections per category',
 					type: 'chart'
 				}
 			]
@@ -310,7 +310,7 @@
 				},
 				{
 					title: 'How many months of data do I need for the forecast?',
-					content: 'The Donation Forecast requires a minimum of three months of historical data. The more data available, the more reliable the projection.',
+					content: 'The Donation Forecast requires a minimum of three completed months with entries. The more data available, the more reliable the projection. Seasonal patterns are applied after twelve months and become more reliable with each additional year.',
 					type: 'info'
 				},
 				{

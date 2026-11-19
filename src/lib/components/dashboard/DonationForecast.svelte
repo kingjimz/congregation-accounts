@@ -2,7 +2,13 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Chart, registerables, type TooltipItem } from 'chart.js';
 	import { Card, Button } from '$lib/components/ui';
-	import { aggregateMonthlyDonations, forecastDonations, formatCurrency } from '$lib/utils';
+	import {
+		aggregateMonthlyDonations,
+		forecastDonations,
+		formatCurrency,
+		getMonthElapsedFraction,
+		sumMonthToDate
+	} from '$lib/utils';
 	import type { Transaction } from '$lib/types';
 	import type { ForecastPoint, MonthlyTotal } from '$lib/utils/forecast';
 
@@ -40,18 +46,34 @@
 	const localMonthly = $derived(aggregateMonthlyDonations(transactions, isLocalCategory));
 	const worldwideMonthly = $derived(aggregateMonthlyDonations(transactions, isWorldwideCategory));
 
+	// Donations already received this month refine the current month's forecast
+	const monthElapsedFraction = getMonthElapsedFraction();
+	const totalOptions = $derived({ monthToDate: sumMonthToDate(transactions), monthElapsedFraction });
+	const localOptions = $derived({
+		monthToDate: sumMonthToDate(transactions, isLocalCategory),
+		monthElapsedFraction
+	});
+	const worldwideOptions = $derived({
+		monthToDate: sumMonthToDate(transactions, isWorldwideCategory),
+		monthElapsedFraction
+	});
+
 	// Card forecasts (3 months)
-	const totalForecast = $derived(forecastDonations(totalMonthly, 3));
-	const localForecast = $derived(forecastDonations(localMonthly, 3));
-	const worldwideForecast = $derived(forecastDonations(worldwideMonthly, 3));
+	const totalForecast = $derived(forecastDonations(totalMonthly, 3, totalOptions));
+	const localForecast = $derived(forecastDonations(localMonthly, 3, localOptions));
+	const worldwideForecast = $derived(forecastDonations(worldwideMonthly, 3, worldwideOptions));
 
 	// Chart forecasts (through December)
 	const monthsToDecember = 13 - (new Date().getMonth() + 1);
-	const totalChartForecast = $derived(forecastDonations(totalMonthly, monthsToDecember));
-	const localChartForecast = $derived(forecastDonations(localMonthly, monthsToDecember));
-	const worldwideChartForecast = $derived(forecastDonations(worldwideMonthly, monthsToDecember));
+	const totalChartForecast = $derived(forecastDonations(totalMonthly, monthsToDecember, totalOptions));
+	const localChartForecast = $derived(forecastDonations(localMonthly, monthsToDecember, localOptions));
+	const worldwideChartForecast = $derived(
+		forecastDonations(worldwideMonthly, monthsToDecember, worldwideOptions)
+	);
 
-	const hasEnoughData = $derived(totalMonthly.length >= 3);
+	// Months with nothing entered do not count as history
+	const monthsOfData = $derived(totalMonthly.filter((m) => !m.missing).length);
+	const hasEnoughData = $derived(monthsOfData >= 3);
 
 	// Derive available years from historical + chart forecast data
 	const availableYears = $derived(() => {
@@ -73,7 +95,7 @@
 		const forecasted: (number | null)[] = new Array(12).fill(null);
 
 		for (const m of monthly) {
-			if (m.month.startsWith(year)) {
+			if (!m.missing && m.month.startsWith(year)) {
 				const monthIdx = parseInt(m.month.split('-')[1]) - 1;
 				historical[monthIdx] = m.total;
 			}
@@ -99,10 +121,12 @@
 		// Connect the historical line to the first forecast point
 		const lastHistIdx = historical.reduce<number>((last, v, i) => v !== null ? i : last, -1);
 		const historicalConnected = [...historical];
+		let bridgeIndex = -1;
 		if (lastHistIdx >= 0 && lastHistIdx < 11) {
 			const nextForecast = forecasted[lastHistIdx + 1];
 			if (nextForecast !== null) {
 				historicalConnected[lastHistIdx + 1] = nextForecast;
+				bridgeIndex = lastHistIdx + 1;
 			}
 		}
 
@@ -112,6 +136,7 @@
 				{
 					label: 'Actual',
 					data: historicalConnected,
+					bridgeIndex,
 					borderColor: 'rgba(34, 197, 94, 1)',
 					backgroundColor: 'rgba(34, 197, 94, 0.1)',
 					borderWidth: 2,
@@ -144,13 +169,19 @@
 		const ww = getYearData(worldwideMonthly, worldwideChartForecast, selectedYear);
 
 		// Connect historical to forecast for both categories
-		function connectLines(hist: (number | null)[], fc: (number | null)[]): (number | null)[] {
-			const connected = [...hist];
+		// The bridge point is a forecast value drawn on the actual line; its index is kept so the tooltip can skip it
+		function connectLines(
+			hist: (number | null)[],
+			fc: (number | null)[]
+		): { data: (number | null)[]; bridgeIndex: number } {
+			const data = [...hist];
+			let bridgeIndex = -1;
 			const lastIdx = hist.reduce<number>((last, v, i) => v !== null ? i : last, -1);
 			if (lastIdx >= 0 && lastIdx < 11 && fc[lastIdx + 1] !== null) {
-				connected[lastIdx + 1] = fc[lastIdx + 1];
+				data[lastIdx + 1] = fc[lastIdx + 1];
+				bridgeIndex = lastIdx + 1;
 			}
-			return connected;
+			return { data, bridgeIndex };
 		}
 
 		const localHistConnected = connectLines(local.historical, local.forecasted);
@@ -161,7 +192,8 @@
 			datasets: [
 				{
 					label: 'LCE (Actual)',
-					data: localHistConnected,
+					data: localHistConnected.data,
+					bridgeIndex: localHistConnected.bridgeIndex,
 					borderColor: 'rgba(34, 197, 94, 1)',
 					backgroundColor: 'rgba(34, 197, 94, 0.1)',
 					borderWidth: 2,
@@ -186,7 +218,8 @@
 				},
 				{
 					label: 'WWW (Actual)',
-					data: wwHistConnected,
+					data: wwHistConnected.data,
+					bridgeIndex: wwHistConnected.bridgeIndex,
 					borderColor: 'rgba(59, 130, 246, 1)',
 					backgroundColor: 'rgba(59, 130, 246, 0.1)',
 					borderWidth: 2,
@@ -243,6 +276,8 @@
 						display: false
 					},
 					tooltip: {
+						filter: (item: TooltipItem<'line'>) =>
+							item.dataIndex !== (item.dataset as { bridgeIndex?: number }).bridgeIndex,
 						callbacks: {
 							label: function(context: TooltipItem<'line'>) {
 								const value = context.parsed.y;
@@ -316,7 +351,7 @@
 			</svg>
 			<p class="text-sm font-medium m-0" style="color: var(--color-text-primary);">Not enough data to forecast</p>
 			<p class="text-xs m-0" style="color: var(--color-text-tertiary);">
-				At least 3 months of donation history is needed. Currently have {totalMonthly.length} month{totalMonthly.length === 1 ? '' : 's'}.
+				At least 3 months of donation history is needed. Currently have {monthsOfData} month{monthsOfData === 1 ? '' : 's'}.
 			</p>
 		</div>
 	{:else}
