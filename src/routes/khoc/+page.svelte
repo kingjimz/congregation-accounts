@@ -8,7 +8,7 @@
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import MonthlyImages from '$lib/components/dashboard/MonthlyImages.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
-	import { formatCurrency, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
+	import { formatCurrency, getDefaultDateForMonth, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { TransactionFormData, Transaction } from '$lib/types';
 
 	let username = $state('');
@@ -26,6 +26,8 @@
 	let showDeleteConfirmation = $state(false);
 	let submitting = $state(false);
 	let selectedMonth = $state(new Date().toISOString().slice(0, 7));
+	// New entries default to a date inside the month being viewed
+	let defaultEntryDate = $derived(getDefaultDateForMonth(selectedMonth));
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
 
@@ -340,7 +342,7 @@
 		{/if}
 
 		<Modal open={showTransactionForm} title="Add New Transaction" size="md" onclose={() => showTransactionForm = false}>
-			<KhocTransactionForm loading={submitting} onsubmit={handleTransactionSubmit} oncancel={() => showTransactionForm = false} />
+			<KhocTransactionForm loading={submitting} initialData={{ date: defaultEntryDate }} onsubmit={handleTransactionSubmit} oncancel={() => showTransactionForm = false} />
 		</Modal>
 
 		<Modal open={showOpeningBalanceForm} title="Set Opening Balance" size="sm" onclose={() => showOpeningBalanceForm = false}>

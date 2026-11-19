@@ -13,7 +13,7 @@
 	import MonthlyImages from '$lib/components/dashboard/MonthlyImages.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
 	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
-	import { formatCurrency, formatMonthYear, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
+	import { formatCurrency, formatMonthYear, getDefaultDateForMonth, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { TransactionFormData, Transaction, OpeningBalance } from '$lib/types';
 
 	// UI state
@@ -24,6 +24,8 @@
 	let showDeleteConfirmation = $state(false);
 	let submitting = $state(false);
 	let selectedMonth = $state(new Date().toISOString().slice(0, 7));
+	// New entries default to a date inside the month being viewed
+	let defaultEntryDate = $derived(getDefaultDateForMonth(selectedMonth));
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
 	let showReportMenu = $state(false);
@@ -546,9 +548,9 @@
 			</button>
 		</div>
 		{#if addTransactionTab === 'donations'}
-			<CombinedDonationForm loading={submitting} onsubmit={handleCombinedDonationSubmit} oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }} />
+			<CombinedDonationForm loading={submitting} initialDate={defaultEntryDate} onsubmit={handleCombinedDonationSubmit} oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }} />
 		{:else}
-			<TransactionForm loading={submitting} initialData={{ type: 'expense' }} onsubmit={handleTransactionSubmit} oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }} />
+			<TransactionForm loading={submitting} initialData={{ type: 'expense', date: defaultEntryDate }} onsubmit={handleTransactionSubmit} oncancel={() => { showTransactionForm = false; addTransactionTab = 'donations'; }} />
 		{/if}
 	</Modal>
 

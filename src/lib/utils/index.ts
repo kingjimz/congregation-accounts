@@ -15,6 +15,7 @@ export {
 
 export { 
   getTodayLocalDate,
+  getDefaultDateForMonth,
   getNextMonth,
   getPreviousMonth,
   isValidDate,

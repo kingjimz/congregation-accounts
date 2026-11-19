@@ -10,6 +10,16 @@ export function getTodayLocalDate(): string {
 }
 
 /**
+ * Default date for a new entry while a month (YYYY-MM) is selected:
+ * today when that month is the current one, otherwise the 1st of that month.
+ */
+export function getDefaultDateForMonth(month: string): string {
+  const today = getTodayLocalDate();
+  if (!/^\d{4}-\d{2}$/.test(month) || today.startsWith(month)) return today;
+  return `${month}-01`;
+}
+
+/**
  * Gets the next month in YYYY-MM format
  */
 export function getNextMonth(monthString: string): string {

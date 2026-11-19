@@ -6,18 +6,20 @@
 
 	interface Props {
 		loading?: boolean;
+		initialDate?: string;
 		onsubmit?: (items: TransactionFormData[]) => void;
 		oncancel?: () => void;
 	}
 
-	let { loading = false, onsubmit, oncancel }: Props = $props();
+	let { loading = false, initialDate, onsubmit, oncancel }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		submit: TransactionFormData[];
 		cancel: void;
 	}>();
 
-	let date = $state(getTodayLocalDate());
+	// svelte-ignore state_referenced_locally
+	let date = $state(initialDate || getTodayLocalDate());
 	let wwAmount = $state<string>('');
 	let lcAmount = $state<string>('');
 
