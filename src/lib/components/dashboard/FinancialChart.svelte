@@ -8,10 +8,9 @@
 	interface Props {
 		transactions: Transaction[];
 		month?: string;
-		filter?: 'all' | 'income' | 'expense';
 	}
 
-	let { transactions, month = 'All', filter = 'all' }: Props = $props();
+	let { transactions, month = 'All' }: Props = $props();
 
 	let incomeCanvasRef: HTMLCanvasElement;
 	let expenseCanvasRef: HTMLCanvasElement;
@@ -33,16 +32,6 @@
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('chartType', type);
 		}
-	}
-
-	// Format month for display
-	function formatMonthForTitle(monthStr: string): string {
-		if (monthStr === '' || monthStr === 'All') return 'All Time';
-
-		const [year, month] = monthStr.split('-');
-		const date = new Date(parseInt(year), parseInt(month) - 1);
-		const monthName = date.toLocaleString('default', { month: 'long' });
-		return `${monthName} ${year}`;
 	}
 
 	// Helper functions for category classification
@@ -127,26 +116,6 @@
 			return transaction ? transaction.amount : 0;
 		});
 
-		// Create tooltip labels
-		const tooltipLabels = allDates.map(date => {
-			const localTransaction = incomeData.local.find(t => t.date === date);
-			const worldwideTransaction = incomeData.worldwide.find(t => t.date === date);
-			
-			// Format date to be shorter (MM/DD)
-			const d = new Date(date);
-			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
-			
-			let tooltip = shortDate;
-			if (localTransaction && worldwideTransaction) {
-				tooltip = `${shortDate} - Donations`;
-			} else if (localTransaction) {
-				tooltip = `${shortDate} - Local`;
-			} else if (worldwideTransaction) {
-				tooltip = `${shortDate} - Worldwide`;
-			}
-			return tooltip;
-		});
-
 		// Destroy existing chart if it exists
 		if (incomeChartInstance) {
 			incomeChartInstance.destroy();
@@ -202,7 +171,7 @@
 					},
 					tooltip: {
 						callbacks: {
-							title: function(context: any) {
+							title: function() {
 								return 'Donations';
 							}
 						}
@@ -279,30 +248,6 @@
 			return transaction ? transaction.amount : 0;
 		});
 
-		// Create tooltip labels
-		const tooltipLabels = allDates.map(date => {
-			const localTransaction = expenseData.local.find(t => t.date === date);
-			const worldwideTransaction = expenseData.worldwide.find(t => t.date === date);
-			const resolutionTransaction = expenseData.resolution.find(t => t.date === date);
-			const khocTransaction = expenseData.khoc.find(t => t.date === date);
-			
-			// Format date to be shorter (MM/DD)
-			const d = new Date(date);
-			const shortDate = `${d.getMonth() + 1}/${d.getDate()}`;
-			
-			let tooltip = shortDate;
-			const categories = [];
-			if (localTransaction) categories.push('Local');
-			if (worldwideTransaction) categories.push('Worldwide');
-			if (resolutionTransaction) categories.push('Resolution');
-			if (khocTransaction) categories.push('KHOC');
-			
-			if (categories.length > 0) {
-				tooltip = `${shortDate} - ${categories.join(', ')}`;
-			}
-			return tooltip;
-		});
-
 		// Destroy existing chart if it exists
 		if (expenseChartInstance) {
 			expenseChartInstance.destroy();
@@ -376,7 +321,7 @@
 					},
 					tooltip: {
 						callbacks: {
-							title: function(context: any) {
+							title: function() {
 								return 'Expenses';
 							}
 						}
@@ -415,9 +360,9 @@
 
 	// Update charts when transactions or chart type change
 	$effect(() => {
-		transactions;
-		month;
-		chartType;
+		void transactions;
+		void month;
+		void chartType;
 		if (incomeCanvasRef && expenseCanvasRef) {
 			updateIncomeChart();
 			updateExpenseChart();

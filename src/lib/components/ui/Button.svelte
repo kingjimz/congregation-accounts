@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { ButtonVariant, ButtonSize } from '$lib/types';
 
 	interface Props {
@@ -9,7 +10,7 @@
 		type?: 'button' | 'submit' | 'reset';
 		onclick?: () => void;
 		class?: string;
-		children?: any;
+		children?: Snippet;
 	}
 
 	let {

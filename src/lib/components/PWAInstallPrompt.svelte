@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	let deferredPrompt: any = $state(null);
+	interface BeforeInstallPromptEvent extends Event {
+		prompt(): Promise<void>;
+		userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+	}
+
+	let deferredPrompt = $state<BeforeInstallPromptEvent | null>(null);
 	let showPrompt = $state(false);
 
 	onMount(() => {
 		window.addEventListener('beforeinstallprompt', (e) => {
 			e.preventDefault();
-			deferredPrompt = e;
+			deferredPrompt = e as BeforeInstallPromptEvent;
 			showPrompt = true;
 		});
 

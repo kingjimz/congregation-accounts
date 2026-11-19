@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { Button, Input, Select } from '$lib/components/ui';
 	import { validateTransaction, getTodayLocalDate } from '$lib/utils';
-	import type { TransactionFormData, ValidationError } from '$lib/types';
+	import type { TransactionFormData } from '$lib/types';
 
 	interface Props {
 		loading?: boolean;
@@ -74,9 +74,9 @@
 
 	// Reset category when type changes if it's not valid for the new type
 	$effect(() => {
-		if (formData.type === 'income' && !KHOC_INCOME_CATEGORIES.includes(formData.category as any)) {
+		if (formData.type === 'income' && !(KHOC_INCOME_CATEGORIES as readonly string[]).includes(formData.category)) {
 			formData.category = '';
-		} else if (formData.type === 'expense' && !KHOC_EXPENSE_CATEGORIES.includes(formData.category as any)) {
+		} else if (formData.type === 'expense' && !(KHOC_EXPENSE_CATEGORIES as readonly string[]).includes(formData.category)) {
 			formData.category = '';
 		}
 	});

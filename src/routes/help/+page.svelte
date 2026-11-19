@@ -464,7 +464,7 @@
 	<!-- Quick Links -->
 	{#if !searchQuery}
 		<div class="quick-links">
-			{#each helpSections.slice(0, 4) as section}
+			{#each helpSections.slice(0, 4) as section (section.id)}
 				<button class="quick-link-card" onclick={() => scrollToSection(section.id)}>
 					<svg class="quick-link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path stroke-linecap="round" stroke-linejoin="round" d={sectionIcons[section.icon]} />
@@ -480,7 +480,7 @@
 		<!-- Sidebar Navigation -->
 		<nav class="docs-nav">
 			<p class="nav-heading">On this page</p>
-			{#each filteredSections as section}
+			{#each filteredSections as section (section.id)}
 				<button onclick={() => scrollToSection(section.id)} class="nav-item {activeSection === section.id ? 'nav-active' : ''}">
 					<svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 						<path stroke-linecap="round" stroke-linejoin="round" d={sectionIcons[section.icon]} />
@@ -502,7 +502,7 @@
 				</div>
 			{/if}
 
-			{#each filteredSections as section}
+			{#each filteredSections as section (section.id)}
 				<section id={section.id} class="docs-section">
 					<div class="section-header">
 						<div class="section-icon-wrap">
@@ -519,7 +519,7 @@
 					<div class="section-body">
 						{#if section.id === 'faq'}
 							<!-- FAQ accordion style -->
-							{#each section.content as item, i}
+							{#each section.content as item, i (i)}
 								<div class="faq-item">
 									<button class="faq-question" onclick={() => toggleFaq(`${section.id}-${i}`)}>
 										<span>{item.title}</span>
@@ -535,31 +535,31 @@
 								</div>
 							{/each}
 						{:else}
-							{#each section.content as item}
+							{#each section.content as item, i (i)}
 								<div class="doc-card {item.type}">
 									<h3 class="doc-card-title">{item.title}</h3>
 									<div class="doc-card-body">
 										{#if item.type === 'steps'}
 											<ol class="steps-list">
-												{#each item.content.split('\n').filter((l: string) => l.trim()) as step}
+												{#each item.content.split('\n').filter((l: string) => l.trim()) as step, j (j)}
 													<li>{step.replace(/^\d+\.\s*/, '')}</li>
 												{/each}
 											</ol>
 										{:else if item.type === 'features'}
 											<ul class="features-list">
-												{#each item.content.split('\n').filter((l: string) => l.trim()) as feature}
-													{@const parts = feature.replace(/^[•\-]\s*/, '').split(':')}
+												{#each item.content.split('\n').filter((l: string) => l.trim()) as feature, j (j)}
+													{@const parts = feature.replace(/^[•-]\s*/, '').split(':')}
 													<li>
 														{#if parts.length > 1}
 															<strong>{parts[0]}:</strong>{parts.slice(1).join(':')}
 														{:else}
-															{feature.replace(/^[•\-]\s*/, '')}
+															{feature.replace(/^[•-]\s*/, '')}
 														{/if}
 													</li>
 												{/each}
 											</ul>
 										{:else}
-											{#each item.content.split('\n\n') as paragraph}
+											{#each item.content.split('\n\n') as paragraph, j (j)}
 												<p class="doc-text">{paragraph}</p>
 											{/each}
 										{/if}

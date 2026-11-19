@@ -11,19 +11,11 @@
 
 	let { children } = $props();
 
-	let showingAuth = $state(false);
-	let showSetupNotice = $state(false);
+	let showingAuth = $derived(!$loading && !$user);
+	let showSetupNotice = $derived($error?.includes('operation-not-allowed') || false);
 	let setupInstructions = $state('');
 	let sidebarCollapsed = $state(true);
 	let mobileSidebarOpen = $state(false);
-
-	$effect(() => {
-		showingAuth = !$loading && !$user;
-	});
-
-	$effect(() => {
-		showSetupNotice = $error?.includes('operation-not-allowed') || false;
-	});
 
 	onMount(() => {
 		theme.init();
@@ -75,7 +67,7 @@
 
 	// Close mobile sidebar on navigation
 	$effect(() => {
-		$page.url.pathname;
+		void $page.url.pathname;
 		mobileSidebarOpen = false;
 	});
 
@@ -148,7 +140,7 @@
 					{#if !sidebarCollapsed}
 						<span class="nav-section-label">MENU</span>
 					{/if}
-					{#each navItems as item}
+					{#each navItems as item (item.href)}
 						<a
 							href={item.href}
 							class="nav-link {isActive(item.href) ? 'nav-link-active' : ''}"
@@ -234,7 +226,7 @@
 				<nav class="sidebar-nav">
 					<div class="nav-section">
 						<span class="nav-section-label">MENU</span>
-						{#each navItems as item}
+						{#each navItems as item (item.href)}
 							<a
 								href={item.href}
 								class="nav-link {isActive(item.href) ? 'nav-link-active' : ''}"
@@ -332,7 +324,7 @@
 
 		<!-- Mobile Bottom Navigation -->
 		<nav class="mobile-bottom-nav">
-			{#each navItems as item}
+			{#each navItems as item (item.href)}
 				<a
 					href={item.href}
 					class="mobile-nav-link {isActive(item.href) ? 'mobile-nav-active' : ''}"

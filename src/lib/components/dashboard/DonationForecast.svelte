@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Chart, registerables } from 'chart.js';
+	import { Chart, registerables, type TooltipItem } from 'chart.js';
 	import { Card, Button } from '$lib/components/ui';
-	import { aggregateMonthlyDonations, forecastDonations, formatCurrency, formatMonthYear } from '$lib/utils';
+	import { aggregateMonthlyDonations, forecastDonations, formatCurrency } from '$lib/utils';
 	import type { Transaction } from '$lib/types';
 	import type { ForecastPoint, MonthlyTotal } from '$lib/utils/forecast';
 
@@ -55,9 +55,9 @@
 
 	// Derive available years from historical + chart forecast data
 	const availableYears = $derived(() => {
-		const years = new Set<string>();
-		for (const m of totalMonthly) years.add(m.month.split('-')[0]);
-		for (const f of totalChartForecast) years.add(f.month.split('-')[0]);
+		const years = new Set(
+			[...totalMonthly, ...totalChartForecast].map((p) => p.month.split('-')[0])
+		);
 		return [...years].sort();
 	});
 
@@ -97,7 +97,7 @@
 		const { historical, forecasted } = getYearData(totalMonthly, totalChartForecast, selectedYear);
 
 		// Connect the historical line to the first forecast point
-		const lastHistIdx = historical.reduce((last, v, i) => v !== null ? i : last, -1);
+		const lastHistIdx = historical.reduce<number>((last, v, i) => v !== null ? i : last, -1);
 		const historicalConnected = [...historical];
 		if (lastHistIdx >= 0 && lastHistIdx < 11) {
 			const nextForecast = forecasted[lastHistIdx + 1];
@@ -146,7 +146,7 @@
 		// Connect historical to forecast for both categories
 		function connectLines(hist: (number | null)[], fc: (number | null)[]): (number | null)[] {
 			const connected = [...hist];
-			const lastIdx = hist.reduce((last, v, i) => v !== null ? i : last, -1);
+			const lastIdx = hist.reduce<number>((last, v, i) => v !== null ? i : last, -1);
 			if (lastIdx >= 0 && lastIdx < 11 && fc[lastIdx + 1] !== null) {
 				connected[lastIdx + 1] = fc[lastIdx + 1];
 			}
@@ -244,7 +244,7 @@
 					},
 					tooltip: {
 						callbacks: {
-							label: function(context: any) {
+							label: function(context: TooltipItem<'line'>) {
 								const value = context.parsed.y;
 								if (value === null) return '';
 								return `${context.dataset.label}: ${formatCurrency(value)}`;
@@ -257,8 +257,8 @@
 						beginAtZero: true,
 						ticks: {
 							color: getThemeColor('--color-text-secondary'),
-							callback: function(value: any) {
-								return formatCurrency(value);
+							callback: function(value: string | number) {
+								return formatCurrency(Number(value));
 							}
 						},
 						grid: { color: getThemeColor('--color-border-primary') }
@@ -273,9 +273,9 @@
 	}
 
 	$effect(() => {
-		transactions;
-		viewMode;
-		selectedYear;
+		void transactions;
+		void viewMode;
+		void selectedYear;
 		if (canvasRef && hasEnoughData) {
 			updateChart();
 		}
@@ -324,7 +324,7 @@
 			<!-- Forecast Cards -->
 			{#if viewMode === 'total' && totalForecast.length > 0}
 				<div class="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 gap-3">
-					{#each totalForecast as point, i}
+					{#each totalForecast as point, i (point.month)}
 						<div class="rounded-lg p-3 border" style="background: var(--color-surface-primary); border-color: var(--color-border-primary);">
 							<span class="text-xs font-medium" style="color: var(--color-text-secondary);">
 								{formatShortMonth(point.month)}
@@ -342,7 +342,7 @@
 
 			{#if viewMode === 'category' && (localForecast.length > 0 || worldwideForecast.length > 0)}
 				<div class="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 gap-3">
-					{#each { length: Math.max(localForecast.length, worldwideForecast.length) } as _, i}
+					{#each { length: Math.max(localForecast.length, worldwideForecast.length) }, i (i)}
 						<div class="rounded-lg p-3 border" style="background: var(--color-surface-primary); border-color: var(--color-border-primary);">
 							<div class="flex items-center justify-between mb-2">
 								<span class="text-xs font-medium" style="color: var(--color-text-secondary);">
@@ -376,7 +376,7 @@
 			<!-- Year Switcher + Chart -->
 			<div>
 				<div class="flex items-center gap-1 mb-3">
-					{#each availableYears() as year}
+					{#each availableYears() as year (year)}
 						<button
 							class="px-3 py-1 text-xs font-medium rounded-md transition-colors focus:outline-none focus:ring-0"
 							style={selectedYear === year

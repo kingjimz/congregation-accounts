@@ -1,12 +1,14 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	interface Props {
 		title?: string;
 		variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
 		padding?: 'none' | 'sm' | 'md' | 'lg';
 		class?: string;
-		children?: any;
-		header?: any;
-		footer?: any;
+		children?: Snippet;
+		header?: Snippet;
+		footer?: Snippet;
 	}
 
 	let {

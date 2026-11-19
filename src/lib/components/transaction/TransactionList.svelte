@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { Button, Card, Select } from '$lib/components/ui';
-	import { formatCurrency, formatDate, formatCategoryName, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
+	import { formatCurrency, formatDate, formatCategoryName, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
 	import type { Transaction } from '$lib/types';
 
 	interface Props {

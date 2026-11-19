@@ -5,10 +5,9 @@
 		value: string;
 		loading?: boolean;
 		onchange?: (month: string) => void;
-		showAll?: boolean;
 	}
 
-	let { value, loading = false, onchange, showAll = false }: Props = $props();
+	let { value, loading = false, onchange }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ change: { month: string } }>();
 

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, type Snippet } from 'svelte';
 
 	interface Props {
 		open: boolean;
 		title?: string;
 		size?: 'sm' | 'md' | 'lg' | 'xl';
 		onclose?: () => void;
-		children?: any;
-		footer?: any;
+		children?: Snippet;
+		footer?: Snippet;
 	}
 
 	let {

@@ -107,7 +107,7 @@
 		return pages;
 	});
 
-	$effect(() => { selectedMonth; currentPage = 1; });
+	$effect(() => { void selectedMonth; currentPage = 1; });
 
 	async function handleTransactionSubmit(data: TransactionFormData) {
 		submitting = true;
@@ -322,7 +322,7 @@
 						<div class="pagination-info">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, allTransactions().length)} of {allTransactions().length}</div>
 						<div class="pagination-controls">
 							<button onclick={previousPage} disabled={currentPage === 1} class="pagination-btn"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
-							{#each pageNumbers() as pageNum}
+							{#each pageNumbers() as pageNum, i (i)}
 								{#if pageNum === -1}<span class="pagination-ellipsis">...</span>
 								{:else}<button onclick={() => goToPage(pageNum)} class="pagination-btn {currentPage === pageNum ? 'pagination-active' : ''}">{pageNum}</button>{/if}
 							{/each}

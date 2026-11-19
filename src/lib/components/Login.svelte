@@ -21,9 +21,6 @@
 		}
 	}
 
-	function handleSignUpClick() {
-		dispatch('switchToSignUp');
-	}
 </script>
 
 <div class="auth-container">

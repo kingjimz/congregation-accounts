@@ -35,7 +35,7 @@
 	{#if notes.length === 0}
 		<p class="empty-msg" style="color: var(--color-text-tertiary);">No notes found</p>
 	{:else}
-		{#each notes as note}
+		{#each notes as note (note.id)}
 			{@const active = note.id === selectedNoteId}
 			<button
 				class="note-item"

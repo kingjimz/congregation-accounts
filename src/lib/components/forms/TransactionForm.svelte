@@ -3,7 +3,7 @@
 	import { Button, Input, Select } from '$lib/components/ui';
 	import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, DONATION_DESCRIPTIONS } from '$lib/constants';
 	import { validateTransaction, getTodayLocalDate } from '$lib/utils';
-	import type { TransactionFormData, ValidationError } from '$lib/types';
+	import type { TransactionFormData } from '$lib/types';
 
 	interface Props {
 		loading?: boolean;
@@ -58,9 +58,9 @@
 
 	// Reset category when type changes if it's not valid for the new type
 	$effect(() => {
-		if (formData.type === 'income' && !INCOME_CATEGORIES.includes(formData.category as any)) {
+		if (formData.type === 'income' && !(INCOME_CATEGORIES as readonly string[]).includes(formData.category)) {
 			formData.category = '';
-		} else if (formData.type === 'expense' && !EXPENSE_CATEGORIES.includes(formData.category as any)) {
+		} else if (formData.type === 'expense' && !(EXPENSE_CATEGORIES as readonly string[]).includes(formData.category)) {
 			formData.category = '';
 		}
 	});

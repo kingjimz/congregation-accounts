@@ -110,7 +110,7 @@
 		/>
 
 		<!-- Expense rows -->
-		{#each entries as entry, i}
+		{#each entries as entry, i (entry.category)}
 			<div class="rounded-lg p-4 space-y-3" style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary);">
 				<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--color-text-secondary);">{entry.category}</p>
 				<Input

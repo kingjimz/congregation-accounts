@@ -76,11 +76,6 @@
 		}
 	}
 
-	async function handleUpload() {
-		if (!uploadInput?.files?.length) return;
-		await handleFile(uploadInput.files[0]);
-	}
-
 	function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		isDragging = false;
@@ -110,13 +105,9 @@
 	let revealedImages = $state<Set<string>>(new Set());
 
 	function toggleReveal(publicId: string) {
-		const next = new Set(revealedImages);
-		if (next.has(publicId)) {
-			next.delete(publicId);
-		} else {
-			next.add(publicId);
-		}
-		revealedImages = next;
+		revealedImages = revealedImages.has(publicId)
+			? new Set([...revealedImages].filter((id) => id !== publicId))
+			: new Set([...revealedImages, publicId]);
 	}
 
 	function showAll() {
@@ -132,7 +123,7 @@
 	);
 
 	$effect(() => {
-		selectedMonth;
+		void selectedMonth;
 		revealedImages = new Set();
 	});
 
