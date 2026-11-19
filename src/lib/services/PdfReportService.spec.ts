@@ -1,22 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
-import { PdfReportService } from './PdfReportService';
+import { PdfReportService, type MonthlyReportData } from './PdfReportService';
 import type { Transaction } from '$lib/types';
 
-const template = readFileSync('static/pdfs/S-26_E.pdf');
+const s26 = readFileSync('static/pdfs/S-26_E.pdf');
+const s30 = readFileSync('static/pdfs/S-30_E.pdf');
 
-const tx = (date: string, type: 'income' | 'expense', category: string, amount: number, description = ''): Transaction => ({
-	date,
-	type,
-	category,
-	amount,
-	description
-});
+const tx = (
+	date: string,
+	type: 'income' | 'expense',
+	category: string,
+	amount: number,
+	description = ''
+): Transaction => ({ date, type, category, amount, description });
+
+const reader = (doc: PDFDocument) => (name: string) =>
+	doc.getForm().getTextField(name).getText() ?? '';
 
 describe('S-26 accounts sheet', () => {
 	it('lists donations and expenses in date order with totals', async () => {
-		const bytes = await PdfReportService.fillAccountsSheet(template, {
+		const data: MonthlyReportData = {
 			month: '2026-10',
 			openingBalance: null,
 			transactions: [
@@ -24,24 +28,25 @@ describe('S-26 accounts sheet', () => {
 				tx('2026-10-05', 'income', 'Local Congregation Donations', 1234.5, 'Contributions - Local Congregation Expenses'),
 				tx('2026-10-05', 'income', 'Worldwide Work Donations', 300, 'Contributions to Worldwide Work')
 			]
-		});
-		const form = (await PDFDocument.load(bytes)).getForm();
-		const get = (name: string) => form.getTextField(name).getText() ?? '';
+		};
+		// Same order fillAccountsSheet uses: by date, donations first
+		const rows = [data.transactions[1], data.transactions[2], data.transactions[0]];
+		const get = reader(await PdfReportService.buildAccountsSheet(s26, data, rows));
 
 		expect(get('900_4_Text_C')).toBe('October');
 		expect(get('900_5_Text_C')).toBe('2026');
 
-		// Row 1: local donation on the 5th
+		// Row 1: local donation on the 5th, in the IN column
 		expect(get('900_7_Text_C')).toBe('5');
 		expect(get('900_59_Text')).toBe('Contributions - Local Congregation Expenses');
 		expect(get('900_111_Text_C')).toBe('C');
-		expect(get('901_1_S26Value')).toBe('1234.50');
+		expect(get('901_1_S26Value')).toBe('1,234.50');
 
 		// Row 2: worldwide donation
 		expect(get('900_112_Text_C')).toBe('W');
 		expect(get('901_2_S26Value')).toBe('300.00');
 
-		// Row 3: expense goes to the OUT side
+		// Row 3: expense goes to the OUT column
 		expect(get('900_9_Text_C')).toBe('12');
 		expect(get('900_61_Text')).toBe('Electric bill');
 		expect(get('900_113_Text_C')).toBe('E');
@@ -51,20 +56,77 @@ describe('S-26 accounts sheet', () => {
 		// Placeholder text saved in the template is cleared from unused rows
 		expect(get('900_63_Text')).toBe('');
 
-		expect(get('901_53_S26TotalValue')).toBe('1534.50');
+		expect(get('901_53_S26TotalValue')).toBe('1,534.50');
 		expect(get('901_106_S26TotalValue')).toBe('500.00');
 	});
 
-	it('adds sheets when there are more than 52 transactions', async () => {
+	it('is flattened, with one sheet per 52 transactions before the reconciliation page', async () => {
+		const one = await PDFDocument.load(
+			await PdfReportService.fillAccountsSheet(s26, { month: '2026-10', openingBalance: null, transactions: [] })
+		);
+		expect(one.getPageCount()).toBe(2);
+		expect(one.getForm().getFields()).toHaveLength(0);
+
 		const transactions = Array.from({ length: 60 }, (_, i) =>
 			tx(`2026-10-${String((i % 28) + 1).padStart(2, '0')}`, 'income', 'Local Congregation Donations', 10)
 		);
-		const bytes = await PdfReportService.fillAccountsSheet(template, {
-			month: '2026-10',
-			openingBalance: null,
-			transactions
-		});
-		const doc = await PDFDocument.load(bytes);
-		expect(doc.getPageCount()).toBe(3);
+		const many = await PDFDocument.load(
+			await PdfReportService.fillAccountsSheet(s26, { month: '2026-10', openingBalance: null, transactions })
+		);
+		expect(many.getPageCount()).toBe(3);
+		expect(many.getForm().getFields()).toHaveLength(0);
+	});
+});
+
+describe('S-30 accounts report', () => {
+	const data: MonthlyReportData = {
+		month: '2026-10',
+		openingBalance: { month: '2026-10', balance: 15000 },
+		congregationName: 'Bolaoen Congregation',
+		transactions: [
+			tx('2026-10-04', 'income', 'Local Congregation Donations', 3480.5),
+			tx('2026-10-04', 'income', 'Worldwide Work Donations', 2150),
+			tx('2026-10-06', 'income', 'Other Donations', 100),
+			tx('2026-10-10', 'expense', 'Local Congregation Expenses', 1875.25),
+			tx('2026-10-15', 'expense', 'KHOC', 2000),
+			tx('2026-10-16', 'expense', 'Resolution', 500),
+			tx('2026-10-20', 'expense', 'Worldwide Work Expenses', 2150)
+		]
+	};
+
+	it('calculates every total line', async () => {
+		const get = reader(await PdfReportService.buildAccountsReport(s30, data));
+
+		expect(get('900_2_Text')).toBe('October 2026');
+		expect(get('901_1_S30_Value')).toBe('15,000.00'); // (a)
+		expect(get('901_2_S30_Value')).toBe('3,480.50');
+		expect(get('900_3_Text')).toBe('Other donations');
+		expect(get('901_4_S30_Value')).toBe('100.00');
+		expect(get('901_6_S30_Total')).toBe('3,580.50'); // (b)
+		expect(get('901_10_S30_Total')).toBe('2,150.00'); // (c)
+		expect(get('901_11_S30_Total')).toBe('5,730.50'); // (d)
+		expect(get('901_12_S30_Value')).toBe('2,000.00');
+		expect(get('901_13_S30_Value')).toBe('500.00');
+		expect(get('900_7_Text')).toBe('Local congregation expenses');
+		expect(get('901_14_S30_Value')).toBe('1,875.25');
+		expect(get('901_19_S30_Total')).toBe('4,375.25'); // (e)
+		expect(get('901_23_S30_Total')).toBe('2,150.00'); // (f)
+		expect(get('901_24_S30_Total')).toBe('6,525.25'); // (g)
+		expect(get('901_25_S30_Total')).toBe('(794.75)'); // (h) deficit
+		expect(get('901_26_S30_Total')).toBe('14,205.25'); // (i)
+		expect(get('901_30_S30_Total')).toBe('14,205.25'); // (k)
+
+		// Page 2 announcement repeats (b), (e), (i), (f)
+		expect(get('900_17_Text_C')).toBe('October 2026');
+		expect(get('901_31_S30_Total')).toBe('3,580.50');
+		expect(get('901_32_S30_Total')).toBe('4,375.25');
+		expect(get('901_33_S30_Total')).toBe('14,205.25');
+		expect(get('901_34_S30_Total')).toBe('2,150.00');
+	});
+
+	it('is flattened', async () => {
+		const doc = await PDFDocument.load(await PdfReportService.fillAccountsReport(s30, data));
+		expect(doc.getPageCount()).toBe(2);
+		expect(doc.getForm().getFields()).toHaveLength(0);
 	});
 });

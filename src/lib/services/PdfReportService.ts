@@ -1,4 +1,4 @@
-import { PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Transaction, OpeningBalance } from '$lib/types';
 import { formatMonthYear } from '$lib/utils';
 
@@ -10,23 +10,22 @@ export interface MonthlyReportData {
   reportDate?: string;
 }
 
+export type ReportTemplate = 'S-26_E' | 'S-30_E';
+
+type TemplateBytes = ArrayBuffer | Uint8Array;
+
+/**
+ * Fills the S-26 (Accounts Sheet) and S-30 (Monthly Congregation Accounts Report)
+ * templates in static/pdfs/.
+ *
+ * The finished PDF is flattened: values are printed into the page instead of left
+ * in form fields. Viewers such as macOS Preview redraw form fields themselves, in
+ * their own font and at low quality, so flattening is what keeps the output sharp
+ * and identical everywhere. The trade-off is that the PDF is no longer typeable,
+ * and the templates' built-in calculation scripts no longer run, so every total
+ * is calculated here.
+ */
 export class PdfReportService {
-  // Helper to format amount without currency symbol (for display)
-  private static formatAmount(amount: number): string {
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(amount));
-  }
-
-  // Helper to format amount as plain number string for PDF calculations (no commas, with decimals)
-  private static formatAmountForCalculation(amount: number): string {
-    return Math.abs(amount).toFixed(2);
-  }
-
-  // S-26 Accounts Sheet layout: 52 transaction rows on page 1.
-  private static readonly S26_ROWS_PER_SHEET = 52;
-
   // Fixed font sizes. The templates default to auto-size, which scales every
   // field differently depending on how much text it holds.
   private static readonly S26_HEADER_FONT_SIZE = 12;
@@ -35,10 +34,35 @@ export class PdfReportService {
   private static readonly S26_DESCRIPTION_WIDTH = 187 - 6; // field width less padding
   private static readonly S30_FONT_SIZE = 10;
 
+  // S-26 Accounts Sheet layout: 52 transaction rows on page 1.
+  private static readonly S26_ROWS_PER_SHEET = 52;
+
   // Which S-26 column group each transaction type is written to.
   // 901 = Receipts, 902 = Primary Account, 903 = Secondary Account.
   private static readonly S26_INCOME_COLUMN = '901';
   private static readonly S26_EXPENSE_COLUMN = '901';
+
+  // 1234.5 -> "1,234.50"; negatives in accounting style: -1234.5 -> "(1,234.50)"
+  private static formatAmount(amount: number): string {
+    const text = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Math.abs(amount));
+    return amount < 0 ? `(${text})` : text;
+  }
+
+  // Totals are left blank when zero, as the templates' own scripts did
+  private static formatTotal(amount: number): string {
+    return Math.abs(amount) < 0.005 ? '' : this.formatAmount(amount);
+  }
+
+  private static sumWhere(transactions: Transaction[], match: (t: Transaction) => boolean): number {
+    return transactions.filter(match).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  }
+
+  // ---------------------------------------------------------------------------
+  // S-26 Accounts Sheet
+  // ---------------------------------------------------------------------------
 
   // S-26 transaction codes (TC column)
   private static s26TransactionCode(transaction: Transaction): string {
@@ -58,14 +82,15 @@ export class PdfReportService {
   }
 
   /**
-   * Fills one copy of the S-26 template with up to 52 transactions.
+   * Fills one copy of the S-26 template with up to 52 transactions and returns
+   * it with its form fields still in place (not flattened).
    * Row n (1-52) uses these fields:
    *   date 900_{6+n}_Text_C, description 900_{58+n}_Text, TC 900_{110+n}_Text_C,
    *   IN {col}_{n}_S26Value, OUT {col}_{53+n}_S26Value
    * Column totals are {col}_53 (IN) and {col}_106 (OUT) _S26TotalValue.
    */
-  private static async fillAccountsSheetPage(
-    templateBytes: ArrayBuffer | Uint8Array,
+  public static async buildAccountsSheet(
+    templateBytes: TemplateBytes,
     data: MonthlyReportData,
     rows: Transaction[]
   ): Promise<PDFDocument> {
@@ -103,7 +128,7 @@ export class PdfReportService {
       for (const column of columns) {
         for (const index of [n, 53 + n]) {
           const key = `${column}_${index}`;
-          set(`${key}_S26Value`, key === target ? this.formatAmountForCalculation(transaction.amount) : '');
+          set(`${key}_S26Value`, key === target ? this.formatAmount(Math.abs(transaction.amount)) : '');
         }
       }
 
@@ -116,7 +141,7 @@ export class PdfReportService {
     for (const column of columns) {
       for (const index of [53, 106]) {
         const key = `${column}_${index}`;
-        set(`${key}_S26TotalValue`, key in totals ? this.formatAmountForCalculation(totals[key]) : '');
+        set(`${key}_S26TotalValue`, key in totals ? this.formatAmount(totals[key]) : '');
       }
     }
 
@@ -138,7 +163,6 @@ export class PdfReportService {
     for (const field of form.getFields()) {
       if (!(field instanceof PDFTextField)) continue;
       const name = field.getName();
-      if (!/^90[0-3]_/.test(name)) continue; // page 2 (reconciliation) is left as is
       if (headerFields.has(name)) field.setFontSize(this.S26_HEADER_FONT_SIZE);
       else if (/^900_\d+_Text$/.test(name)) field.setFontSize(descriptionSize);
       else field.setFontSize(this.S26_ROW_FONT_SIZE);
@@ -150,12 +174,10 @@ export class PdfReportService {
 
   /**
    * Fills the S-26 Accounts Sheet with every donation and expense of the month.
-   * Up to 52 transactions the result stays an editable form. Beyond that, extra
-   * sheets are added and the result is flattened, because copies of the same
-   * form cannot share field names.
+   * Each 52 transactions get their own sheet, followed by the reconciliation page.
    */
   public static async fillAccountsSheet(
-    templateBytes: ArrayBuffer | Uint8Array,
+    templateBytes: TemplateBytes,
     data: MonthlyReportData
   ): Promise<Uint8Array> {
     const sorted = this.sortForAccountsSheet(data.transactions);
@@ -165,166 +187,169 @@ export class PdfReportService {
     }
     if (chunks.length === 0) chunks.push([]);
 
-    if (chunks.length === 1) {
-      const pdfDoc = await this.fillAccountsSheetPage(templateBytes, data, chunks[0]);
-      return await pdfDoc.save();
-    }
+    const first = await this.buildAccountsSheet(templateBytes, data, chunks[0]);
+    first.getForm().flatten();
+    if (chunks.length === 1) return await first.save();
 
-    const output = await PDFDocument.create();
-    let reconciliationSource: PDFDocument | null = null;
-    for (const chunk of chunks) {
-      const sheet = await this.fillAccountsSheetPage(templateBytes, data, chunk);
+    // Extra sheets: page 1 of further filled copies, placed before the reconciliation page
+    const output = await PDFDocument.load(await first.save());
+    for (let i = 1; i < chunks.length; i++) {
+      const sheet = await this.buildAccountsSheet(templateBytes, data, chunks[i]);
       sheet.getForm().flatten();
-      // Reload so the flattened content copies cleanly
       const flattened = await PDFDocument.load(await sheet.save());
       const [page] = await output.copyPages(flattened, [0]);
-      output.addPage(page);
-      reconciliationSource ??= flattened;
-    }
-    if (reconciliationSource && reconciliationSource.getPageCount() > 1) {
-      const [reconciliation] = await output.copyPages(reconciliationSource, [1]);
-      output.addPage(reconciliation);
+      output.insertPage(i, page);
     }
     return await output.save();
   }
 
+  // ---------------------------------------------------------------------------
+  // S-30 Monthly Congregation Accounts Report
+  // ---------------------------------------------------------------------------
+
   /**
-   * Loads the PDF template and fills it with data using text positioning
-   * Template should be placed at: static/pdfs/S-30_E.pdf or static/pdfs/S-26_E.pdf
+   * Fills the S-30 template and returns it with its form fields still in place
+   * (not flattened). Lines (b) to (k) follow the formulas printed on the form.
    */
-  public static async generateMonthlyReport(data: MonthlyReportData, templateType: 'S-26_E' | 'S-30_E' = 'S-30_E'): Promise<Uint8Array> {
+  public static async buildAccountsReport(
+    templateBytes: TemplateBytes,
+    data: MonthlyReportData
+  ): Promise<PDFDocument> {
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const form = pdfDoc.getForm();
+    const font = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+
+    const tx = data.transactions;
+    const income = (t: Transaction) => t.type === 'income';
+    const expense = (t: Transaction) => t.type === 'expense';
+    const has = (t: Transaction, text: string) => t.category.includes(text);
+
+    const openingBalance = data.openingBalance?.balance || 0;
+
+    // Receipts
+    const localDonations = this.sumWhere(tx, (t) => income(t) && has(t, 'Local Congregation Donations'));
+    const worldwideDonations = this.sumWhere(tx, (t) => income(t) && has(t, 'Worldwide Work Donations'));
+    const otherDonations = this.sumWhere(tx, income) - localDonations - worldwideDonations;
+
+    // Disbursements
+    const khoc = this.sumWhere(tx, (t) => expense(t) && has(t, 'KHOC'));
+    const resolution = this.sumWhere(tx, (t) => expense(t) && has(t, 'Resolution'));
+    const worldwideExpenses = this.sumWhere(tx, (t) => expense(t) && has(t, 'Worldwide Work Expenses'));
+    // Everything else, so the report always agrees with the app's totals
+    const localExpenses = this.sumWhere(tx, expense) - khoc - resolution - worldwideExpenses;
+
+    const totalCongregationReceipts = localDonations + otherDonations; // (b)
+    const totalOtherReceipts = worldwideDonations; // (c)
+    const totalReceipts = totalCongregationReceipts + totalOtherReceipts; // (d)
+    const totalCongregationExpenditures = khoc + resolution + localExpenses; // (e)
+    const totalOtherDisbursements = worldwideExpenses; // (f)
+    const totalDisbursements = totalCongregationExpenditures + totalOtherDisbursements; // (g)
+    const surplus = totalReceipts - totalDisbursements; // (h)
+    const endingFunds = openingBalance + surplus; // (i)
+    const reservedFunds = 0; // (j) not tracked in the app
+    const availableFunds = endingFunds - reservedFunds; // (k)
+
+    const monthYear = formatMonthYear(data.month);
+
+    const values: Record<string, string> = {
+      '900_1_Text': data.congregationName || 'Bolaoen Congregation',
+      '900_2_Text': monthYear,
+      '901_1_S30_Value': this.formatAmount(openingBalance), // (a)
+      '901_2_S30_Value': this.formatAmount(localDonations),
+      '901_6_S30_Total': this.formatTotal(totalCongregationReceipts),
+      '901_7_S30_Value': this.formatAmount(worldwideDonations),
+      '901_10_S30_Total': this.formatTotal(totalOtherReceipts),
+      '901_11_S30_Total': this.formatTotal(totalReceipts),
+      '901_12_S30_Value': this.formatAmount(khoc),
+      '901_13_S30_Value': this.formatAmount(resolution),
+      '901_19_S30_Total': this.formatTotal(totalCongregationExpenditures),
+      '901_20_S30_Value': this.formatAmount(worldwideExpenses),
+      '901_23_S30_Total': this.formatTotal(totalOtherDisbursements),
+      '901_24_S30_Total': this.formatTotal(totalDisbursements),
+      '901_25_S30_Total': this.formatTotal(surplus),
+      '901_26_S30_Total': this.formatTotal(endingFunds),
+      '901_29_S30_Total': this.formatTotal(reservedFunds),
+      '901_30_S30_Total': this.formatTotal(availableFunds),
+      // Page 2: announcement
+      '900_17_Text_C': monthYear,
+      '901_31_S30_Total': this.formatTotal(totalCongregationReceipts), // figure (b)
+      '901_32_S30_Total': this.formatTotal(totalCongregationExpenditures), // figure (e)
+      '901_33_S30_Total': this.formatTotal(endingFunds), // figure (i)
+      '901_34_S30_Total': this.formatTotal(totalOtherDisbursements) // figure (f)
+    };
+
+    // Write-in lines, used only when there is something to report
+    if (otherDonations > 0) {
+      values['900_3_Text'] = 'Other donations';
+      values['901_4_S30_Value'] = this.formatAmount(otherDonations);
+    }
+    if (localExpenses > 0) {
+      values['900_7_Text'] = 'Local congregation expenses';
+      values['901_14_S30_Value'] = this.formatAmount(localExpenses);
+    }
+
+    for (const field of form.getFields()) {
+      if (!(field instanceof PDFTextField)) continue;
+      const value = values[field.getName()];
+      if (value !== undefined) field.setText(value);
+      field.setFontSize(this.S30_FONT_SIZE);
+    }
+
+    form.updateFieldAppearances(font);
+    return pdfDoc;
+  }
+
+  public static async fillAccountsReport(
+    templateBytes: TemplateBytes,
+    data: MonthlyReportData
+  ): Promise<Uint8Array> {
+    const pdfDoc = await this.buildAccountsReport(templateBytes, data);
+    const form = pdfDoc.getForm();
+    // The page already prints the two checkbox squares on page 2; flattening the
+    // unticked checkbox fields on top of them would draw a second outline.
+    for (const field of form.getFields()) {
+      if (field instanceof PDFCheckBox) form.removeField(field);
+    }
+    form.flatten();
+    return await pdfDoc.save();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Entry points
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Loads a template from static/pdfs/ and returns the filled, flattened PDF.
+   */
+  public static async generateMonthlyReport(
+    data: MonthlyReportData,
+    templateType: ReportTemplate = 'S-30_E'
+  ): Promise<Uint8Array> {
     try {
-      // Load the PDF template
       const templatePath = `/pdfs/${templateType}.pdf`;
       const templateResponse = await fetch(templatePath);
-      
+
       if (!templateResponse.ok) {
-        throw new Error(`Template PDF not found at ${templatePath}. Please add ${templateType}.pdf to the static/pdfs/ directory.`);
+        throw new Error(
+          `Template PDF not found at ${templatePath}. Please add ${templateType}.pdf to the static/pdfs/ directory.`
+        );
       }
 
       const templateBytes = await templateResponse.arrayBuffer();
-
-      if (templateType === 'S-26_E') {
-        return await this.fillAccountsSheet(templateBytes, data);
-      }
-
-      const pdfDoc = await PDFDocument.load(templateBytes);
-      
-      // Verify the PDF has pages
-      const pages = pdfDoc.getPages();
-      if (pages.length === 0) {
-        throw new Error('Template PDF has no pages.');
-      }
-
-      // Embed Times Roman font for form fields
-      const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-
-      // Try to access form fields and fill them directly
-      try {
-        const form = pdfDoc.getForm();
-        const formFields = form.getFields();
-        
-        // Prepare all data values
-        const congregationName = data.congregationName || 'Bolaoen Congregation';
-        const monthYear = formatMonthYear(data.month);
-        const openingBalanceAmount = data.openingBalance?.balance || 0;
-        
-        // Calculate donation totals
-        const www_donation = data.transactions
-          .filter(transaction => 
-            transaction.type === 'income' && 
-            transaction.category.includes('Worldwide Work Donations')
-          )
-          .reduce((sum, transaction) => sum + transaction.amount, 0);
-        
-        const lce_donations = data.transactions
-          .filter(transaction => 
-            transaction.type === 'income' && 
-            transaction.category.includes('Local Congregation Donations')
-          )
-          .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-        const khoc_contributions = data.transactions
-          .filter(transaction => 
-            transaction.type === 'expense' && 
-            transaction.category.includes('KHOC')
-          )
-          .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-          const expense_resolution = data.transactions
-          .filter(transaction => 
-            transaction.type === 'expense' && 
-            transaction.category.includes('Resolution')
-          )
-          .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-          const www_expense = data.transactions
-          .filter(transaction => 
-            transaction.type === 'expense' && 
-            transaction.category.includes('Worldwide Work Expenses')
-          )
-          .reduce((sum, transaction) => sum + transaction.amount, 0);
-        
-        // For PDF form fields that are used in calculations, use plain numeric strings (no commas)
-        // The PDF's format script will handle the display formatting with commas
-        // Format: "1234.56" (no commas, with 2 decimal places)
-        const openingBalanceForCalc = this.formatAmountForCalculation(openingBalanceAmount);
-        const www_donations_forCalc = this.formatAmountForCalculation(www_donation);
-        const lce_donations_forCalc = this.formatAmountForCalculation(lce_donations);
-        const khoc_contributions_forCalc = this.formatAmountForCalculation(khoc_contributions);
-        const resolution = this.formatAmountForCalculation(expense_resolution);
-        const www = this.formatAmountForCalculation(www_expense);
-        
-        // Map data to form fields by exact field names
-        // Using plain numeric strings (no commas) for calculated fields
-        // The PDF's format script will add commas for display
-        const fieldMappings: Record<string, string> = {
-          '900_1_Text': congregationName,
-          '900_2_Text': monthYear,
-          '901_1_S30_Value': openingBalanceForCalc,
-          '901_2_S30_Value': lce_donations_forCalc,
-          '901_7_S30_Value': www_donations_forCalc,
-          '901_12_S30_Value': khoc_contributions_forCalc,
-          '901_13_S30_Value' : resolution,
-          '901_20_S30_Value' : www
-        };
-        
-        // Fill form fields based on mappings
-        formFields.forEach((field) => {
-          try {
-            const fieldName = field.getName();
-            const fieldType = field.constructor.name;
-            
-            // Skip checkboxes for now
-            if (fieldType === 'PDFCheckBox2') {
-              return;
-            }
-            
-            const textField = form.getTextField(fieldName);
-            
-            if (fieldMappings[fieldName]) {
-              textField.setText(fieldMappings[fieldName]);
-            }
-            textField.setFontSize(this.S30_FONT_SIZE);
-            textField.updateAppearances(timesRomanFont);
-          } catch {
-            // Skip if field can't be accessed
-          }
-        });
-      } catch {
-        // PDF might not have form fields, continue with manual positioning
-      }
-     
-      // Save the PDF
-      const pdfBytes = await pdfDoc.save();
-      return pdfBytes;
+      return templateType === 'S-26_E'
+        ? await this.fillAccountsSheet(templateBytes, data)
+        : await this.fillAccountsReport(templateBytes, data);
     } catch (error) {
       console.error('Error generating PDF from template:', error);
       throw error;
     }
   }
 
-  public static async downloadReport(data: MonthlyReportData, filename?: string, templateType: 'S-26_E' | 'S-30_E' = 'S-30_E'): Promise<void> {
+  public static async downloadReport(
+    data: MonthlyReportData,
+    filename?: string,
+    templateType: ReportTemplate = 'S-30_E'
+  ): Promise<void> {
     try {
       const pdfBytes = await this.generateMonthlyReport(data, templateType);
       const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
@@ -343,7 +368,10 @@ export class PdfReportService {
     }
   }
 
-  public static async previewReport(data: MonthlyReportData, templateType: 'S-26_E' | 'S-30_E' = 'S-30_E'): Promise<void> {
+  public static async previewReport(
+    data: MonthlyReportData,
+    templateType: ReportTemplate = 'S-30_E'
+  ): Promise<void> {
     try {
       const pdfBytes = await this.generateMonthlyReport(data, templateType);
       const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
