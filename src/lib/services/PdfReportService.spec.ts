@@ -87,7 +87,7 @@ describe('S-30 accounts report', () => {
 			tx('2026-10-04', 'income', 'Local Congregation Donations', 3480.5),
 			tx('2026-10-04', 'income', 'Worldwide Work Donations', 2150),
 			tx('2026-10-06', 'income', 'Other Donations', 100),
-			tx('2026-10-10', 'expense', 'Local Congregation Expenses', 1875.25),
+			tx('2026-10-10', 'expense', 'Local Congregation Expenses', 1875.25, 'Electric bill'),
 			tx('2026-10-15', 'expense', 'KHOC', 2000),
 			tx('2026-10-16', 'expense', 'Resolution', 500),
 			tx('2026-10-20', 'expense', 'Worldwide Work Expenses', 2150)
@@ -107,7 +107,7 @@ describe('S-30 accounts report', () => {
 		expect(get('901_11_S30_Total')).toBe('5,730.50'); // (d)
 		expect(get('901_12_S30_Value')).toBe('2,000.00');
 		expect(get('901_13_S30_Value')).toBe('500.00');
-		expect(get('900_7_Text')).toBe('Local congregation expenses');
+		expect(get('900_7_Text')).toBe('Electric bill');
 		expect(get('901_14_S30_Value')).toBe('1,875.25');
 		expect(get('901_19_S30_Total')).toBe('4,375.25'); // (e)
 		expect(get('901_23_S30_Total')).toBe('2,150.00'); // (f)
@@ -122,6 +122,83 @@ describe('S-30 accounts report', () => {
 		expect(get('901_32_S30_Total')).toBe('4,375.25');
 		expect(get('901_33_S30_Total')).toBe('14,205.25');
 		expect(get('901_34_S30_Total')).toBe('2,150.00');
+	});
+
+	const report = async (transactions: Transaction[]) =>
+		reader(
+			await PdfReportService.buildAccountsReport(s30, {
+				month: '2026-10',
+				openingBalance: { month: '2026-10', balance: 0 },
+				congregationName: 'Bolaoen Congregation',
+				transactions
+			})
+		);
+	const local = (amount: number, description: string) =>
+		tx('2026-10-10', 'expense', 'Local Congregation Expenses', amount, description);
+
+	it('lists each local expense under its own label, largest first', async () => {
+		const get = await report([
+			local(300, 'Water bill'),
+			local(1200, 'Electric bill'),
+			local(250.5, 'Cleaning supplies'),
+			local(100, 'water bill '),
+			local(75, '')
+		]);
+
+		expect(get('900_7_Text')).toBe('Electric bill');
+		expect(get('901_14_S30_Value')).toBe('1,200.00');
+		expect(get('900_8_Text')).toBe('Water bill'); // merged, first spelling kept
+		expect(get('901_15_S30_Value')).toBe('400.00');
+		expect(get('900_9_Text')).toBe('Cleaning supplies');
+		expect(get('901_16_S30_Value')).toBe('250.50');
+		expect(get('900_10_Text')).toBe('Local Congregation Expenses'); // no description
+		expect(get('901_17_S30_Value')).toBe('75.00');
+		expect(get('900_11_Text')).toBe('');
+		expect(get('901_19_S30_Total')).toBe('1,925.50'); // (e)
+	});
+
+	it('puts KHOC contributions under Kingdom Hall operating expenses', async () => {
+		const get = await report([
+			local(1500, 'KHOC Contributions'),
+			tx('2026-10-15', 'expense', 'KHOC', 500),
+			local(200, 'Electric bill')
+		]);
+
+		expect(get('901_12_S30_Value')).toBe('2,000.00');
+		expect(get('900_7_Text')).toBe('Electric bill');
+		expect(get('901_14_S30_Value')).toBe('200.00');
+		expect(get('900_8_Text')).toBe('');
+		expect(get('901_19_S30_Total')).toBe('2,200.00'); // (e)
+	});
+
+	it('combines the smallest expenses when there are more than five labels', async () => {
+		const get = await report([
+			local(700, 'A'),
+			local(600, 'B'),
+			local(500, 'C'),
+			local(400, 'D'),
+			local(300, 'E'),
+			local(200, 'F'),
+			local(100, 'G')
+		]);
+
+		expect(get('900_10_Text')).toBe('D');
+		expect(get('901_17_S30_Value')).toBe('400.00');
+		expect(get('900_11_Text')).toBe('Other expenses');
+		expect(get('901_18_S30_Value')).toBe('600.00');
+		expect(get('901_19_S30_Total')).toBe('2,800.00'); // (e)
+	});
+
+	it('adds amounts to the exact cent', async () => {
+		const get = await report([
+			local(0.1, 'Stamps'),
+			local(0.2, 'Stamps'),
+			tx('2026-10-04', 'income', 'Local Congregation Donations', 0.3)
+		]);
+
+		expect(get('901_14_S30_Value')).toBe('0.30');
+		expect(get('901_19_S30_Total')).toBe('0.30'); // (e)
+		expect(get('901_25_S30_Total')).toBe(''); // (h) exactly zero
 	});
 
 	it('is flattened', async () => {

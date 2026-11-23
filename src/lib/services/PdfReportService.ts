@@ -33,6 +33,8 @@ export class PdfReportService {
   private static readonly S26_MIN_ROW_FONT_SIZE = 6;
   private static readonly S26_DESCRIPTION_WIDTH = 187 - 6; // field width less padding
   private static readonly S30_FONT_SIZE = 10;
+  // Blank write-in lines under Congregation Expenditures on the S-30
+  private static readonly S30_EXPENSE_LINES = 5;
 
   // S-26 Accounts Sheet layout: 52 transaction rows on page 1.
   private static readonly S26_ROWS_PER_SHEET = 52;
@@ -54,10 +56,6 @@ export class PdfReportService {
   // Totals are left blank when zero, as the templates' own scripts did
   private static formatTotal(amount: number): string {
     return Math.abs(amount) < 0.005 ? '' : this.formatAmount(amount);
-  }
-
-  private static sumWhere(transactions: Transaction[], match: (t: Transaction) => boolean): number {
-    return transactions.filter(match).reduce((sum, t) => sum + Math.abs(t.amount), 0);
   }
 
   // ---------------------------------------------------------------------------
@@ -224,19 +222,57 @@ export class PdfReportService {
     const expense = (t: Transaction) => t.type === 'expense';
     const has = (t: Transaction, text: string) => t.category.includes(text);
 
-    const openingBalance = data.openingBalance?.balance || 0;
+    // Everything below is summed in whole cents so each printed line and
+    // total agree exactly; amounts are converted back only when formatted.
+    const cents = (amount: number) => Math.round(Math.abs(amount) * 100);
+    const sumCents = (match: (t: Transaction) => boolean) =>
+      tx.filter(match).reduce((sum, t) => sum + cents(t.amount), 0);
+
+    const openingBalance = Math.round((data.openingBalance?.balance || 0) * 100);
 
     // Receipts
-    const localDonations = this.sumWhere(tx, (t) => income(t) && has(t, 'Local Congregation Donations'));
-    const worldwideDonations = this.sumWhere(tx, (t) => income(t) && has(t, 'Worldwide Work Donations'));
-    const otherDonations = this.sumWhere(tx, income) - localDonations - worldwideDonations;
+    const localDonations = sumCents((t) => income(t) && has(t, 'Local Congregation Donations'));
+    const worldwideDonations = sumCents((t) => income(t) && has(t, 'Worldwide Work Donations'));
+    const otherDonations = sumCents(income) - localDonations - worldwideDonations;
 
-    // Disbursements
-    const khoc = this.sumWhere(tx, (t) => expense(t) && has(t, 'KHOC'));
-    const resolution = this.sumWhere(tx, (t) => expense(t) && has(t, 'Resolution'));
-    const worldwideExpenses = this.sumWhere(tx, (t) => expense(t) && has(t, 'Worldwide Work Expenses'));
-    // Everything else, so the report always agrees with the app's totals
-    const localExpenses = this.sumWhere(tx, expense) - khoc - resolution - worldwideExpenses;
+    // Disbursements: each expense is counted on exactly one line
+    let khoc = 0;
+    let resolution = 0;
+    let worldwideExpenses = 0;
+    // Remaining expenses, grouped by what they were entered as
+    const itemized = new Map<string, { label: string; amount: number }>();
+
+    for (const t of tx.filter(expense)) {
+      const amount = cents(t.amount);
+      const description = (t.description || '').trim();
+      if (has(t, 'Worldwide Work Expenses')) {
+        worldwideExpenses += amount;
+      } else if (has(t, 'Resolution')) {
+        resolution += amount;
+      } else if (/khoc/i.test(t.category) || /khoc/i.test(description)) {
+        khoc += amount; // Kingdom Hall operating expenses
+      } else {
+        const label = description || t.category;
+        const key = label.toLowerCase();
+        const group = itemized.get(key);
+        if (group) group.amount += amount;
+        else itemized.set(key, { label, amount });
+      }
+    }
+
+    // The form has five write-in lines; anything beyond the four largest
+    // is combined on the fifth so total (e) stays complete.
+    const expenseLines = [...itemized.values()]
+      .filter((line) => line.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    if (expenseLines.length > this.S30_EXPENSE_LINES) {
+      const rest = expenseLines.splice(this.S30_EXPENSE_LINES - 1);
+      expenseLines.push({
+        label: 'Other expenses',
+        amount: rest.reduce((sum, line) => sum + line.amount, 0)
+      });
+    }
+    const localExpenses = expenseLines.reduce((sum, line) => sum + line.amount, 0);
 
     const totalCongregationReceipts = localDonations + otherDonations; // (b)
     const totalOtherReceipts = worldwideDonations; // (c)
@@ -251,42 +287,46 @@ export class PdfReportService {
 
     const monthYear = formatMonthYear(data.month);
 
+    const money = (amountInCents: number) => this.formatAmount(amountInCents / 100);
+    const total = (amountInCents: number) => this.formatTotal(amountInCents / 100);
+
     const values: Record<string, string> = {
       '900_1_Text': data.congregationName || 'Bolaoen Congregation',
       '900_2_Text': monthYear,
-      '901_1_S30_Value': this.formatAmount(openingBalance), // (a)
-      '901_2_S30_Value': this.formatAmount(localDonations),
-      '901_6_S30_Total': this.formatTotal(totalCongregationReceipts),
-      '901_7_S30_Value': this.formatAmount(worldwideDonations),
-      '901_10_S30_Total': this.formatTotal(totalOtherReceipts),
-      '901_11_S30_Total': this.formatTotal(totalReceipts),
-      '901_12_S30_Value': this.formatAmount(khoc),
-      '901_13_S30_Value': this.formatAmount(resolution),
-      '901_19_S30_Total': this.formatTotal(totalCongregationExpenditures),
-      '901_20_S30_Value': this.formatAmount(worldwideExpenses),
-      '901_23_S30_Total': this.formatTotal(totalOtherDisbursements),
-      '901_24_S30_Total': this.formatTotal(totalDisbursements),
-      '901_25_S30_Total': this.formatTotal(surplus),
-      '901_26_S30_Total': this.formatTotal(endingFunds),
-      '901_29_S30_Total': this.formatTotal(reservedFunds),
-      '901_30_S30_Total': this.formatTotal(availableFunds),
+      '901_1_S30_Value': money(openingBalance), // (a)
+      '901_2_S30_Value': money(localDonations),
+      '901_6_S30_Total': total(totalCongregationReceipts),
+      '901_7_S30_Value': money(worldwideDonations),
+      '901_10_S30_Total': total(totalOtherReceipts),
+      '901_11_S30_Total': total(totalReceipts),
+      '901_12_S30_Value': money(khoc),
+      '901_13_S30_Value': money(resolution),
+      '901_19_S30_Total': total(totalCongregationExpenditures),
+      '901_20_S30_Value': money(worldwideExpenses),
+      '901_23_S30_Total': total(totalOtherDisbursements),
+      '901_24_S30_Total': total(totalDisbursements),
+      '901_25_S30_Total': total(surplus),
+      '901_26_S30_Total': total(endingFunds),
+      '901_29_S30_Total': total(reservedFunds),
+      '901_30_S30_Total': total(availableFunds),
       // Page 2: announcement
       '900_17_Text_C': monthYear,
-      '901_31_S30_Total': this.formatTotal(totalCongregationReceipts), // figure (b)
-      '901_32_S30_Total': this.formatTotal(totalCongregationExpenditures), // figure (e)
-      '901_33_S30_Total': this.formatTotal(endingFunds), // figure (i)
-      '901_34_S30_Total': this.formatTotal(totalOtherDisbursements) // figure (f)
+      '901_31_S30_Total': total(totalCongregationReceipts), // figure (b)
+      '901_32_S30_Total': total(totalCongregationExpenditures), // figure (e)
+      '901_33_S30_Total': total(endingFunds), // figure (i)
+      '901_34_S30_Total': total(totalOtherDisbursements) // figure (f)
     };
 
     // Write-in lines, used only when there is something to report
     if (otherDonations > 0) {
       values['900_3_Text'] = 'Other donations';
-      values['901_4_S30_Value'] = this.formatAmount(otherDonations);
+      values['901_4_S30_Value'] = money(otherDonations);
     }
-    if (localExpenses > 0) {
-      values['900_7_Text'] = 'Local congregation expenses';
-      values['901_14_S30_Value'] = this.formatAmount(localExpenses);
-    }
+    // Labels are 900_7..900_11, amounts are 901_14..901_18
+    expenseLines.forEach((line, i) => {
+      values[`900_${7 + i}_Text`] = line.label;
+      values[`901_${14 + i}_S30_Value`] = money(line.amount);
+    });
 
     for (const field of form.getFields()) {
       if (!(field instanceof PDFTextField)) continue;
