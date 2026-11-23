@@ -62,14 +62,6 @@ export class PdfReportService {
   // S-26 Accounts Sheet
   // ---------------------------------------------------------------------------
 
-  // S-26 transaction codes (TC column)
-  private static s26TransactionCode(transaction: Transaction): string {
-    if (transaction.type === 'expense') return 'E';
-    if (transaction.category.includes('Worldwide Work')) return 'W';
-    if (transaction.category.includes('Local Congregation')) return 'C';
-    return '';
-  }
-
   // Donations first within the same day, then expenses, in date order
   private static sortForAccountsSheet(transactions: Transaction[]): Transaction[] {
     return [...transactions].sort((a, b) => {
@@ -114,7 +106,8 @@ export class PdfReportService {
       // Always write every row so placeholder text saved in the template is cleared
       set(`900_${6 + n}_Text_C`, transaction ? String(parseInt(transaction.date.split('-')[2])) : '');
       set(`900_${58 + n}_Text`, transaction ? transaction.description || transaction.category : '');
-      set(`900_${110 + n}_Text_C`, transaction ? this.s26TransactionCode(transaction) : '');
+      // TC column is intentionally left blank
+      set(`900_${110 + n}_Text_C`, '');
 
       const isIncome = transaction?.type === 'income';
       const target = transaction

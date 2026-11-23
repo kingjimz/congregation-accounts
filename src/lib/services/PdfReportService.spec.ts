@@ -39,17 +39,17 @@ describe('S-26 accounts sheet', () => {
 		// Row 1: local donation on the 5th, in the IN column
 		expect(get('900_7_Text_C')).toBe('5');
 		expect(get('900_59_Text')).toBe('Contributions - Local Congregation Expenses');
-		expect(get('900_111_Text_C')).toBe('C');
+		expect(get('900_111_Text_C')).toBe('');
 		expect(get('901_1_S26Value')).toBe('1,234.50');
 
 		// Row 2: worldwide donation
-		expect(get('900_112_Text_C')).toBe('W');
+		expect(get('900_112_Text_C')).toBe('');
 		expect(get('901_2_S26Value')).toBe('300.00');
 
 		// Row 3: expense goes to the OUT column
 		expect(get('900_9_Text_C')).toBe('12');
 		expect(get('900_61_Text')).toBe('Electric bill');
-		expect(get('900_113_Text_C')).toBe('E');
+		expect(get('900_113_Text_C')).toBe('');
 		expect(get('901_3_S26Value')).toBe('');
 		expect(get('901_56_S26Value')).toBe('500.00');
 
