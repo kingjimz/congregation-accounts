@@ -1,4 +1,12 @@
-import { PDFCheckBox, PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
+import {
+  PDFArray,
+  PDFCheckBox,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFTextField,
+  StandardFonts
+} from 'pdf-lib';
 import type { Transaction, OpeningBalance } from '$lib/types';
 import { formatMonthYear } from '$lib/utils';
 
@@ -7,16 +15,19 @@ export interface MonthlyReportData {
   transactions: Transaction[];
   openingBalance: OpeningBalance | null;
   congregationName?: string;
+  // Printed on the S-44 only
+  kingdomHallLocation?: string;
   reportDate?: string;
 }
 
-export type ReportTemplate = 'S-26_E' | 'S-30_E';
+export type ReportTemplate = 'S-26_E' | 'S-30_E' | 'S-44_E';
 
 type TemplateBytes = ArrayBuffer | Uint8Array;
 
 /**
- * Fills the S-26 (Accounts Sheet) and S-30 (Monthly Congregation Accounts Report)
- * templates in static/pdfs/.
+ * Fills the S-26 (Accounts Sheet), S-30 (Monthly Congregation Accounts Report)
+ * and S-44 (Monthly Kingdom Hall Operating Committee Accounts Report) templates
+ * in static/pdfs/.
  *
  * The finished PDF is flattened: values are printed into the page instead of left
  * in form fields. Viewers such as macOS Preview redraw form fields themselves, in
@@ -35,6 +46,17 @@ export class PdfReportService {
   private static readonly S30_FONT_SIZE = 10;
   // Blank write-in lines under Congregation Expenditures on the S-30
   private static readonly S30_EXPENSE_LINES = 5;
+  private static readonly S44_FONT_SIZE = 11;
+  private static readonly S44_MIN_FONT_SIZE = 6;
+  private static readonly S44_LABEL_WIDTH = 285 - 6; // field width less padding
+  private static readonly S44_RECEIPT_LINES = 8;
+  private static readonly S44_EXPENSE_LINES = 13;
+  private static readonly S44_DEFAULT_LOCATION = 'Bantay Insik Sison Pangasinan';
+  // KHOC receipt categories and the congregation each one is printed as
+  private static readonly S44_CONGREGATIONS: Record<string, string> = {
+    esp: 'Esperanza Congregation',
+    bol: 'Bolaoen Congregation'
+  };
 
   // S-26 Accounts Sheet layout: 52 transaction rows on page 1.
   private static readonly S26_ROWS_PER_SHEET = 52;
@@ -361,6 +383,184 @@ export class PdfReportService {
   }
 
   // ---------------------------------------------------------------------------
+  // S-44 Monthly Kingdom Hall Operating Committee Accounts Report
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The S-44 template keeps its text fields on the page but lists none of them
+   * in the document's form, so pdf-lib finds no fields. This registers each
+   * named field on the page with the form. Does nothing once they are listed.
+   */
+  private static adoptPageWidgets(pdfDoc: PDFDocument): void {
+    const acroForm = pdfDoc.catalog.getOrCreateAcroForm().dict;
+    let fields = acroForm.lookupMaybe(PDFName.of('Fields'), PDFArray);
+    if (!fields) {
+      fields = pdfDoc.context.obj([]);
+      acroForm.set(PDFName.of('Fields'), fields);
+    }
+    if (fields.size() > 0) return;
+
+    for (const page of pdfDoc.getPages()) {
+      const annots = page.node.Annots();
+      if (!annots) continue;
+      for (let i = 0; i < annots.size(); i++) {
+        const ref = annots.get(i);
+        const widget = pdfDoc.context.lookup(ref);
+        if (!(widget instanceof PDFDict)) continue;
+        if (widget.get(PDFName.of('Subtype')) !== PDFName.of('Widget')) continue;
+        if (!widget.has(PDFName.of('T')) || widget.has(PDFName.of('Parent'))) continue;
+        fields.push(ref);
+      }
+    }
+  }
+
+  // Groups amounts under a label, keeping the order labels first appear in
+  private static groupLines(
+    entries: { label: string; amount: number }[]
+  ): { label: string; amount: number }[] {
+    const groups = new Map<string, { label: string; amount: number }>();
+    for (const { label, amount } of entries) {
+      const key = label.toLowerCase();
+      const group = groups.get(key);
+      if (group) group.amount += amount;
+      else groups.set(key, { label, amount });
+    }
+    return [...groups.values()].filter((line) => line.amount > 0);
+  }
+
+  // Anything beyond the lines printed on the form is combined on the last one
+  private static fitLines(
+    lines: { label: string; amount: number }[],
+    limit: number,
+    overflowLabel: string
+  ): { label: string; amount: number }[] {
+    if (lines.length <= limit) return lines;
+    const kept = lines.slice(0, limit - 1);
+    const rest = lines.slice(limit - 1);
+    kept.push({ label: overflowLabel, amount: rest.reduce((sum, line) => sum + line.amount, 0) });
+    return kept;
+  }
+
+  /**
+   * Fills the S-44 template and returns it with its form fields still in place
+   * (not flattened). Receipts are one line per congregation; expenditures are
+   * one line per description, in date order.
+   * Receipt line i (0-7): label 900_{4+2i}_Text, amount 901_{5+2i}_S44Rec.
+   * Expenditure line i (0-12): label 900_{21+2i}_Text, amount 901_{22+2i}_S44Ex.
+   */
+  public static async buildOperatingCommitteeReport(
+    templateBytes: TemplateBytes,
+    data: MonthlyReportData
+  ): Promise<PDFDocument> {
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    this.adoptPageWidgets(pdfDoc);
+    const form = pdfDoc.getForm();
+    const font = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+
+    // Summed in whole cents so each printed line and total agree exactly
+    const cents = (amount: number) => Math.round(Math.abs(amount) * 100);
+    const byDate = [...data.transactions].sort((a, b) => a.date.localeCompare(b.date));
+
+    const congregations = Object.values(this.S44_CONGREGATIONS);
+    const receiptLabel = (t: Transaction) =>
+      this.S44_CONGREGATIONS[t.category.trim().toLowerCase()] ||
+      (t.description || '').trim() ||
+      t.category;
+    const rank = (label: string) => {
+      const index = congregations.findIndex((name) => name.toLowerCase() === label.toLowerCase());
+      return index === -1 ? congregations.length : index;
+    };
+    // Congregations first, in a fixed order, then any other receipt
+    const receiptLines = this.fitLines(
+      this.groupLines(
+        byDate
+          .filter((t) => t.type === 'income')
+          .map((t) => ({ label: receiptLabel(t), amount: cents(t.amount) }))
+      ).sort((a, b) => rank(a.label) - rank(b.label)),
+      this.S44_RECEIPT_LINES,
+      'Other receipts'
+    );
+
+    const expenseLines = this.fitLines(
+      this.groupLines(
+        byDate
+          .filter((t) => t.type === 'expense')
+          .map((t) => ({
+            label: (t.description || '').trim() || t.category,
+            amount: cents(t.amount)
+          }))
+      ),
+      this.S44_EXPENSE_LINES,
+      'Other expenses'
+    );
+
+    const sum = (lines: { amount: number }[]) => lines.reduce((s, line) => s + line.amount, 0);
+    const beginningFunds = Math.round((data.openingBalance?.balance || 0) * 100); // (a)
+    const totalReceipts = sum(receiptLines); // (b)
+    const totalExpenditures = sum(expenseLines); // (c)
+    const surplus = totalReceipts - totalExpenditures; // (d)
+    const endingFunds = beginningFunds + surplus; // (e)
+    const futureExpenses = 0; // (f) not tracked in the app
+    const availableFunds = Math.max(0, endingFunds - futureExpenses); // (g)
+
+    const money = (amountInCents: number) => this.formatAmount(amountInCents / 100);
+    const total = (amountInCents: number) => this.formatTotal(amountInCents / 100);
+
+    const values: Record<string, string> = {
+      '900_1_Text': data.kingdomHallLocation ?? this.S44_DEFAULT_LOCATION,
+      '900_2_Text': formatMonthYear(data.month),
+      '901_3_S44BOM': money(beginningFunds),
+      '901_20_S44TotalRec': total(totalReceipts),
+      '901_47_S44TotalEx': total(totalExpenditures),
+      '901_48_S44SurDef': total(surplus),
+      '901_49_S44EOM': money(endingFunds),
+      '901_54_S44TotalSpec': total(futureExpenses),
+      // The form asks for "0.00" here rather than a blank or a negative
+      '901_55_S44TotalFunds': money(availableFunds)
+    };
+    receiptLines.forEach((line, i) => {
+      values[`900_${4 + 2 * i}_Text`] = line.label;
+      values[`901_${5 + 2 * i}_S44Rec`] = money(line.amount);
+    });
+    expenseLines.forEach((line, i) => {
+      values[`900_${21 + 2 * i}_Text`] = line.label;
+      values[`901_${22 + 2 * i}_S44Ex`] = money(line.amount);
+    });
+
+    for (const field of form.getFields()) {
+      if (!(field instanceof PDFTextField)) continue;
+      const name = field.getName();
+      const value = values[name] ?? '';
+      field.setText(value);
+
+      // Line labels shrink only as far as needed to fit on their line
+      let size = this.S44_FONT_SIZE;
+      if (/^900_\d+_Text$/.test(name) && name !== '900_1_Text' && name !== '900_2_Text') {
+        const width = font.widthOfTextAtSize(value, size);
+        if (width > this.S44_LABEL_WIDTH) {
+          size = Math.max(
+            this.S44_MIN_FONT_SIZE,
+            Math.floor(((size * this.S44_LABEL_WIDTH) / width) * 2) / 2
+          );
+        }
+      }
+      field.setFontSize(size);
+    }
+
+    form.updateFieldAppearances(font);
+    return pdfDoc;
+  }
+
+  public static async fillOperatingCommitteeReport(
+    templateBytes: TemplateBytes,
+    data: MonthlyReportData
+  ): Promise<Uint8Array> {
+    const pdfDoc = await this.buildOperatingCommitteeReport(templateBytes, data);
+    pdfDoc.getForm().flatten();
+    return await pdfDoc.save();
+  }
+
+  // ---------------------------------------------------------------------------
   // Entry points
   // ---------------------------------------------------------------------------
 
@@ -382,9 +582,11 @@ export class PdfReportService {
       }
 
       const templateBytes = await templateResponse.arrayBuffer();
-      return templateType === 'S-26_E'
-        ? await this.fillAccountsSheet(templateBytes, data)
-        : await this.fillAccountsReport(templateBytes, data);
+      if (templateType === 'S-26_E') return await this.fillAccountsSheet(templateBytes, data);
+      if (templateType === 'S-44_E') {
+        return await this.fillOperatingCommitteeReport(templateBytes, data);
+      }
+      return await this.fillAccountsReport(templateBytes, data);
     } catch (error) {
       console.error('Error generating PDF from template:', error);
       throw error;

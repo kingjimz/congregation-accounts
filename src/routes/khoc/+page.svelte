@@ -8,8 +8,9 @@
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
 	import MonthlyImages from '$lib/components/dashboard/MonthlyImages.svelte';
 	import { TransactionService } from '$lib/services/TransactionService';
-	import { formatCurrency, getDefaultDateForMonth, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
-	import type { TransactionFormData, Transaction } from '$lib/types';
+	import { PdfReportService, type MonthlyReportData } from '$lib/services/PdfReportService';
+	import { formatCurrency, formatMonthYear, getDefaultDateForMonth, sortTransactions, getSortPreference, saveSortPreference, type SortField, type SortOrder } from '$lib/utils';
+	import type { TransactionFormData, Transaction, OpeningBalance } from '$lib/types';
 
 	let username = $state('');
 	let password = $state('');
@@ -30,6 +31,7 @@
 	let defaultEntryDate = $derived(getDefaultDateForMonth(selectedMonth));
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
+	let isGeneratingReport = $state(false);
 
 	let currentPage = $state(1);
 	let itemsPerPage = $state(10);
@@ -169,6 +171,29 @@
 
 	function handleDismissError() { khocTransactionStore.clearError(); }
 
+	function prepareReportData(): MonthlyReportData {
+		const ob = monthlyData().openingBalance;
+		let openingBalance: OpeningBalance | null = null;
+		if (typeof ob === 'number') {
+			openingBalance = ob !== 0 ? { month: selectedMonth, balance: ob } : null;
+		} else { openingBalance = ob as OpeningBalance | null; }
+		return {
+			month: selectedMonth, transactions: monthlyData().transactions, openingBalance,
+			kingdomHallLocation: 'Bantay Insik Sison Pangasinan'
+		};
+	}
+
+	// Fills the S-44 report for the selected month and downloads it
+	async function generateReport() {
+		if (isGeneratingReport || !selectedMonth) return;
+		isGeneratingReport = true;
+		try {
+			const monthYear = formatMonthYear(selectedMonth).toUpperCase().replace(' ', '_');
+			await PdfReportService.downloadReport(prepareReportData(), `S-44_E_KHOC_${monthYear}.pdf`, 'S-44_E');
+		} catch (error) { console.error('Error generating PDF:', error); alert('Failed to generate PDF report.'); }
+		finally { isGeneratingReport = false; }
+	}
+
 	function handleAmountKeydown(event: KeyboardEvent) {
 		if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 || (event.keyCode === 65 && event.ctrlKey) || (event.keyCode === 67 && event.ctrlKey) || (event.keyCode === 86 && event.ctrlKey) || (event.keyCode === 88 && event.ctrlKey) || (event.keyCode >= 35 && event.keyCode <= 39)) return;
 		if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) return;
@@ -264,6 +289,12 @@
 						<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
 						<span class="btn-label">Add Transaction</span>
 					</Button>
+					{#if selectedMonth && selectedMonth !== ''}
+						<Button variant="secondary" onclick={generateReport} disabled={isGeneratingReport}>
+							<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+							<span class="btn-label">{isGeneratingReport ? 'Generating...' : 'Export S-44'}</span>
+						</Button>
+					{/if}
 					<Button variant="danger" onclick={handleLogout}>
 						<svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
 						<span class="btn-label">Logout</span>

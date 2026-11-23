@@ -6,6 +6,7 @@ import type { Transaction } from '$lib/types';
 
 const s26 = readFileSync('static/pdfs/S-26_E.pdf');
 const s30 = readFileSync('static/pdfs/S-30_E.pdf');
+const s44 = readFileSync('static/pdfs/S-44_E.pdf');
 
 const tx = (
 	date: string,
@@ -224,6 +225,107 @@ describe('S-30 accounts report', () => {
 	it('is flattened', async () => {
 		const doc = await PDFDocument.load(await PdfReportService.fillAccountsReport(s30, data));
 		expect(doc.getPageCount()).toBe(2);
+		expect(doc.getForm().getFields()).toHaveLength(0);
+	});
+});
+
+describe('S-44 operating committee report', () => {
+	// The manually typed April 2026 report
+	const data: MonthlyReportData = {
+		month: '2026-04',
+		openingBalance: { month: '2026-04', balance: 1703.3 },
+		transactions: [
+			tx('2026-04-05', 'income', 'BOL', 2651, 'BOLAOEN CONGREGATION'),
+			tx('2026-04-06', 'income', 'ESP', 1400, 'ESPERANZA CONGREGATION'),
+			tx('2026-04-20', 'income', 'BOL', 2000, 'BOLAOEN CONGREGATION'),
+			tx('2026-04-08', 'expense', 'KHOC Expenses', 500, 'Internet Bill'),
+			tx('2026-04-10', 'expense', 'KHOC Expenses', 1044.89, 'Electric Bill'),
+			tx('2026-04-15', 'expense', 'KHOC Expenses', 570, '3 Gallons for the Water Dispenser'),
+			tx(
+				'2026-04-15',
+				'expense',
+				'KHOC Expenses',
+				500,
+				'Gasoline Expenses for the Purchase of Water Dispenser Gallons'
+			)
+		]
+	};
+
+	it('matches the manually typed report', async () => {
+		const get = reader(await PdfReportService.buildOperatingCommitteeReport(s44, data));
+
+		expect(get('900_1_Text')).toBe('Bantay Insik Sison Pangasinan');
+		expect(get('900_2_Text')).toBe('April 2026');
+		expect(get('901_3_S44BOM')).toBe('1,703.30'); // (a)
+
+		// One line per congregation, Esperanza first
+		expect(get('900_4_Text')).toBe('Esperanza Congregation');
+		expect(get('901_5_S44Rec')).toBe('1,400.00');
+		expect(get('900_6_Text')).toBe('Bolaoen Congregation');
+		expect(get('901_7_S44Rec')).toBe('4,651.00');
+		expect(get('900_8_Text')).toBe('');
+		expect(get('901_20_S44TotalRec')).toBe('6,051.00'); // (b)
+
+		expect(get('900_21_Text')).toBe('Internet Bill');
+		expect(get('901_22_S44Ex')).toBe('500.00');
+		expect(get('900_23_Text')).toBe('Electric Bill');
+		expect(get('901_24_S44Ex')).toBe('1,044.89');
+		expect(get('900_25_Text')).toBe('3 Gallons for the Water Dispenser');
+		expect(get('901_26_S44Ex')).toBe('570.00');
+		expect(get('900_27_Text')).toBe(
+			'Gasoline Expenses for the Purchase of Water Dispenser Gallons'
+		);
+		expect(get('901_28_S44Ex')).toBe('500.00');
+		expect(get('900_29_Text')).toBe('');
+		expect(get('901_47_S44TotalEx')).toBe('2,614.89'); // (c)
+
+		expect(get('901_48_S44SurDef')).toBe('3,436.11'); // (d)
+		expect(get('901_49_S44EOM')).toBe('5,139.41'); // (e)
+		expect(get('900_50_Text')).toBe('');
+		expect(get('901_54_S44TotalSpec')).toBe(''); // (f)
+		expect(get('901_55_S44TotalFunds')).toBe('5,139.41'); // (g)
+	});
+
+	it('combines expenses beyond the thirteen lines', async () => {
+		const many: MonthlyReportData = {
+			month: '2026-04',
+			openingBalance: null,
+			transactions: Array.from({ length: 15 }, (_, i) =>
+				tx(`2026-04-${String(i + 1).padStart(2, '0')}`, 'expense', 'KHOC Expenses', 100, `Item ${i + 1}`)
+			)
+		};
+		const get = reader(await PdfReportService.buildOperatingCommitteeReport(s44, many));
+
+		expect(get('900_43_Text')).toBe('Item 12');
+		expect(get('901_44_S44Ex')).toBe('100.00');
+		expect(get('900_45_Text')).toBe('Other expenses');
+		expect(get('901_46_S44Ex')).toBe('300.00');
+		expect(get('901_47_S44TotalEx')).toBe('1,500.00');
+	});
+
+	it('shows a deficit in brackets and never reports negative available funds', async () => {
+		const deficit: MonthlyReportData = {
+			month: '2026-04',
+			openingBalance: { month: '2026-04', balance: 100 },
+			transactions: [
+				tx('2026-04-02', 'income', 'ESP', 200, 'ESPERANZA CONGREGATION'),
+				tx('2026-04-03', 'expense', 'KHOC Expenses', 250, 'Repairs'),
+				tx('2026-04-04', 'expense', 'KHOC Expenses', 250, 'repairs')
+			]
+		};
+		const get = reader(await PdfReportService.buildOperatingCommitteeReport(s44, deficit));
+
+		expect(get('900_21_Text')).toBe('Repairs');
+		expect(get('901_22_S44Ex')).toBe('500.00');
+		expect(get('901_48_S44SurDef')).toBe('(300.00)'); // (d)
+		expect(get('901_49_S44EOM')).toBe('(200.00)'); // (e)
+		expect(get('901_55_S44TotalFunds')).toBe('0.00'); // (g)
+	});
+
+	it('flattens the finished report', async () => {
+		const bytes = await PdfReportService.fillOperatingCommitteeReport(s44, data);
+		const doc = await PDFDocument.load(bytes);
+		expect(doc.getPageCount()).toBe(1);
 		expect(doc.getForm().getFields()).toHaveLength(0);
 	});
 });
