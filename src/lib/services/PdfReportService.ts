@@ -143,6 +143,19 @@ export class PdfReportService {
       }
     }
 
+    // Page 2, Accounts Sheet Summary, Primary Account. Covers the whole month,
+    // not only the rows on this sheet. Summed in whole cents.
+    const cents = (amount: number) => Math.round(Math.abs(amount) * 100);
+    const monthTotal = (type: Transaction['type']) =>
+      data.transactions.filter((t) => t.type === type).reduce((sum, t) => sum + cents(t.amount), 0);
+    const balanceForward = Math.round((data.openingBalance?.balance || 0) * 100);
+    const moneyIn = monthTotal('income');
+    const moneyOut = monthTotal('expense');
+    set('904_33_S26Amount', this.formatAmount(balanceForward / 100));
+    set('904_34_S26TotalAmount', this.formatAmount(moneyIn / 100));
+    set('904_35_S26TotalAmount', this.formatAmount(moneyOut / 100));
+    set('904_36_S26TotalAmount', this.formatAmount((balanceForward + moneyIn - moneyOut) / 100));
+
     // One size for every description: the row size, or smaller only if the
     // longest description on this sheet would otherwise be cut off.
     let descriptionSize = this.S26_ROW_FONT_SIZE;

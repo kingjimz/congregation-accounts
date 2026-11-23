@@ -60,6 +60,26 @@ describe('S-26 accounts sheet', () => {
 		expect(get('901_106_S26TotalValue')).toBe('500.00');
 	});
 
+	it('fills the Primary Account summary on page 2 for the whole month', async () => {
+		const data: MonthlyReportData = {
+			month: '2026-10',
+			openingBalance: { month: '2026-10', balance: 15000 },
+			transactions: [
+				tx('2026-10-05', 'income', 'Local Congregation Donations', 1234.5),
+				tx('2026-10-05', 'income', 'Worldwide Work Donations', 300),
+				tx('2026-10-12', 'expense', 'Local Congregation Expenses', 500.25),
+				tx('2026-10-20', 'expense', 'KHOC', 2000)
+			]
+		};
+		// Only one row on this sheet; the summary still covers every transaction
+		const get = reader(await PdfReportService.buildAccountsSheet(s26, data, [data.transactions[0]]));
+
+		expect(get('904_33_S26Amount')).toBe('15,000.00'); // Balance Forward
+		expect(get('904_34_S26TotalAmount')).toBe('1,534.50'); // IN
+		expect(get('904_35_S26TotalAmount')).toBe('2,500.25'); // OUT
+		expect(get('904_36_S26TotalAmount')).toBe('14,034.25'); // Ending Balance
+	});
+
 	it('is flattened, with one sheet per 52 transactions before the reconciliation page', async () => {
 		const one = await PDFDocument.load(
 			await PdfReportService.fillAccountsSheet(s26, { month: '2026-10', openingBalance: null, transactions: [] })
