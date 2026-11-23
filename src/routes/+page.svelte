@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { transactions, loading, error, transactionStore } from '$lib/stores/transactions';
 	import { openingBalances, openingBalanceStore } from '$lib/stores/opening-balances';
-	import { Alert, Button, Modal, Card, Select } from '$lib/components/ui';
+	import { Alert, Button, Modal, Card, Select, SuccessModal } from '$lib/components/ui';
 	import TransactionForm from '$lib/components/forms/TransactionForm.svelte';
 	import CombinedDonationForm from '$lib/components/forms/CombinedDonationForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
@@ -30,6 +30,8 @@
 	let deletingTransactionId = $state<string | null>(null);
 	let showReportMenu = $state(false);
 	let isGeneratingReport = $state(false);
+	// Name of the file just exported; shows the success screen while set
+	let exportedFile = $state('');
 	let selectedTemplate = $state<'S-26_E' | 'S-30_E'>('S-30_E');
 
 	const templateOptions = [
@@ -284,7 +286,9 @@
 		try {
 			const reportData = prepareReportData();
 			const monthYear = formatMonthYear(selectedMonth).toUpperCase().replace(' ', '_');
-			await PdfReportService.downloadReport(reportData, `${selectedTemplate}_${monthYear}.pdf`, selectedTemplate);
+			const filename = `${selectedTemplate}_${monthYear}.pdf`;
+			await PdfReportService.downloadReport(reportData, filename, selectedTemplate);
+			exportedFile = filename;
 		} catch (error) { console.error('Error generating PDF:', error); alert('Failed to generate PDF report.'); }
 		finally { isGeneratingReport = false; }
 	}
@@ -593,6 +597,14 @@
 	</Modal>
 
 	<!-- Delete Confirmation Modal -->
+	<SuccessModal
+		open={exportedFile !== ''}
+		title="Export complete"
+		message="The {selectedTemplate.replace('_E', '')} report for {formatMonthYear(selectedMonth)} has been downloaded."
+		detail={exportedFile}
+		onclose={() => exportedFile = ''}
+	/>
+
 	<Modal open={showDeleteConfirmation} title="Delete Transaction" size="sm" onclose={cancelDelete}>
 		<div class="text-center py-4 space-y-4">
 			<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full" style="background: var(--color-error-bg);">

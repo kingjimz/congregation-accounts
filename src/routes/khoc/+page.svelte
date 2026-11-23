@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { khocTransactions, khocLoading, khocError, khocTransactionStore } from '$lib/stores/khoc-transactions';
 	import { khocOpeningBalances, khocOpeningBalanceStore } from '$lib/stores/khoc-opening-balances';
-	import { Alert, Button, Modal, Card } from '$lib/components/ui';
+	import { Alert, Button, Modal, Card, SuccessModal } from '$lib/components/ui';
 	import KhocTransactionForm from '$lib/components/forms/KhocTransactionForm.svelte';
 	import TransactionList from '$lib/components/transaction/TransactionList.svelte';
 	import MonthPicker from '$lib/components/dashboard/MonthPicker.svelte';
@@ -32,6 +32,8 @@
 	let editingTransaction = $state<Transaction | null>(null);
 	let deletingTransactionId = $state<string | null>(null);
 	let isGeneratingReport = $state(false);
+	// Name of the file just exported; shows the success screen while set
+	let exportedFile = $state('');
 
 	let currentPage = $state(1);
 	let itemsPerPage = $state(10);
@@ -189,7 +191,9 @@
 		isGeneratingReport = true;
 		try {
 			const monthYear = formatMonthYear(selectedMonth).toUpperCase().replace(' ', '_');
-			await PdfReportService.downloadReport(prepareReportData(), `S-44_E_KHOC_${monthYear}.pdf`, 'S-44_E');
+			const filename = `S-44_E_KHOC_${monthYear}.pdf`;
+			await PdfReportService.downloadReport(prepareReportData(), filename, 'S-44_E');
+			exportedFile = filename;
 		} catch (error) { console.error('Error generating PDF:', error); alert('Failed to generate PDF report.'); }
 		finally { isGeneratingReport = false; }
 	}
@@ -402,6 +406,14 @@
 				<KhocTransactionForm loading={submitting} initialData={{ date: editingTransaction.date, description: editingTransaction.description, category: editingTransaction.category, amount: editingTransaction.amount, type: editingTransaction.type }} onsubmit={handleUpdateTransaction} oncancel={() => { showEditTransactionForm = false; editingTransaction = null; }} />
 			{/if}
 		</Modal>
+
+		<SuccessModal
+			open={exportedFile !== ''}
+			title="Export complete"
+			message="The S-44 report for {formatMonthYear(selectedMonth)} has been downloaded."
+			detail={exportedFile}
+			onclose={() => exportedFile = ''}
+		/>
 
 		<Modal open={showDeleteConfirmation} title="Delete Transaction" size="sm" onclose={cancelDelete}>
 			<div class="text-center py-4 space-y-4">
